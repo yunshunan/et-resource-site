@@ -1,0 +1,20 @@
+# 这个文件定义了代码的所有者，用于自动分配代码审查者
+
+# 默认所有者，如果没有其他规则匹配，那么这些人将被分配为审查者
+* @yunshunan
+
+# 前端代码
+/frontend/ @yunshunan
+
+# 后端代码
+/backend/ @yunshunan
+
+# 认证相关代码需要更严格的审查
+/backend/controllers/auth* @yunshunan
+/backend/middlewares/auth.js @yunshunan
+/backend/models/User.js @yunshunan
+
+# 配置文件
+*.json @yunshunan
+*.md @yunshunan
+.github/ @yunshunan 
