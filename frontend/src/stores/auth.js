@@ -19,7 +19,7 @@ export const useAuthStore = defineStore('auth', {
     isLoggedIn: (state) => state.isAuthenticated && !!state.token,
     
     // 检查是否是管理员
-    isAdmin: (state) => state.user && state.user.role === 'admin'
+    isAdmin: (state) => state.user && state.user.role === 'admin' ? true : false
   },
   
   actions: {
