@@ -1,10 +1,11 @@
 import { defineStore } from 'pinia'
-import axios from '@/services/api'
+import { authApi } from '@/services/api'
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
     user: null,
     token: null,
+    refreshToken: null,
     isAuthenticated: false,
     loading: false,
     error: null
@@ -28,23 +29,18 @@ export const useAuthStore = defineStore('auth', {
       this.error = null
       
       try {
-        // 实际项目中连接到后端API
-        // const response = await axios.post('/api/auth/login', { email, password })
-        // this.user = response.data.user
-        // this.token = response.data.token
-        
-        // 模拟登录成功 - 实际项目中替换为真实API调用
-        this.user = {
-          id: 1,
-          username: 'testuser',
-          email: email,
-          role: 'user'
+        const response = await authApi.login({ email, password })
+        if (response.success) {
+          this.user = response.user
+          this.token = response.accessToken
+          this.refreshToken = response.refreshToken
+          this.isAuthenticated = true
+          return true
+        } else {
+          throw new Error(response.message || '登录失败')
         }
-        this.token = 'sample-token-xyz'
-        this.isAuthenticated = true
-        return true
       } catch (error) {
-        this.error = error.response?.data?.message || '登录失败，请检查您的账号和密码'
+        this.error = error.response?.data?.message || error.message || '登录失败，请检查您的账号和密码'
         return false
       } finally {
         this.loading = false
@@ -57,23 +53,18 @@ export const useAuthStore = defineStore('auth', {
       this.error = null
       
       try {
-        // 实际项目中连接到后端API
-        // const response = await axios.post('/api/auth/register', userData)
-        // this.user = response.data.user
-        // this.token = response.data.token
-        
-        // 模拟注册成功 - 实际项目中替换为真实API调用
-        this.user = {
-          id: 2,
-          username: userData.username,
-          email: userData.email,
-          role: 'user'
+        const response = await authApi.register(userData)
+        if (response.success) {
+          this.user = response.user
+          this.token = response.accessToken
+          this.refreshToken = response.refreshToken
+          this.isAuthenticated = true
+          return true
+        } else {
+          throw new Error(response.message || '注册失败')
         }
-        this.token = 'sample-token-xyz'
-        this.isAuthenticated = true
-        return true
       } catch (error) {
-        this.error = error.response?.data?.message || '注册失败，请稍后再试'
+        this.error = error.response?.data?.message || error.message || '注册失败，请稍后再试'
         return false
       } finally {
         this.loading = false
@@ -81,11 +72,20 @@ export const useAuthStore = defineStore('auth', {
     },
     
     // 注销
-    logout() {
-      this.user = null
-      this.token = null
-      this.isAuthenticated = false
-      this.error = null
+    async logout() {
+      try {
+        if (this.isAuthenticated) {
+          await authApi.logout()
+        }
+      } catch (error) {
+        console.error('注销时发生错误:', error)
+      } finally {
+        this.user = null
+        this.token = null
+        this.refreshToken = null
+        this.isAuthenticated = false
+        this.error = null
+      }
     },
     
     // 获取当前用户信息
@@ -95,25 +95,40 @@ export const useAuthStore = defineStore('auth', {
       this.loading = true
       
       try {
-        // 实际项目中从API获取
-        // const response = await axios.get('/api/auth/me')
-        // this.user = response.data.data
-        
-        // 模拟获取用户数据 - 实际项目中替换为真实API调用
-        this.user = {
-          id: this.user?.id || 1,
-          username: this.user?.username || 'testuser',
-          email: this.user?.email || 'test@example.com',
-          role: this.user?.role || 'user'
+        const response = await authApi.getMe()
+        if (response.success) {
+          this.user = response.data
+          this.isAuthenticated = true
+        } else {
+          throw new Error(response.message || '获取用户信息失败')
         }
       } catch (error) {
-        this.error = error.response?.data?.message || '获取用户信息失败'
+        this.error = error.response?.data?.message || error.message || '获取用户信息失败'
         // 如果出现401错误，表示token已过期，执行注销
         if (error.response?.status === 401) {
           this.logout()
         }
       } finally {
         this.loading = false
+      }
+    },
+    
+    // 刷新token
+    async refreshAccessToken() {
+      if (!this.refreshToken) return false
+      
+      try {
+        const response = await authApi.refreshToken(this.refreshToken)
+        if (response.success) {
+          this.token = response.accessToken
+          return true
+        }
+        return false
+      } catch (error) {
+        console.error('刷新token失败:', error)
+        // 如果刷新失败，执行注销
+        await this.logout()
+        return false
       }
     }
   },
@@ -122,6 +137,6 @@ export const useAuthStore = defineStore('auth', {
   persist: {
     key: 'et-auth',
     storage: localStorage,
-    paths: ['token', 'user', 'isAuthenticated']
+    paths: ['token', 'refreshToken', 'user', 'isAuthenticated']
   }
 }) 
