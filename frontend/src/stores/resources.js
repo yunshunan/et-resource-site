@@ -35,8 +35,8 @@ export const useResourceStore = defineStore('resources', {
     // 检查指定资源是否已收藏
     isFavorited: (state) => (resourceId) => {
       if (!state.resource) return false;
-      return state.resource.favorites && 
-             state.resource.favorites.includes(state.user?.id);
+      return !!(state.resource.favorites && 
+             state.resource.favorites.includes(state.user?.id));
     }
   },
   
