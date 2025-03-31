@@ -9,6 +9,7 @@ Et 资源小站是一个提供各类优质资源的平台，包括办公资源�
 - 前端: Vue.js 3
 - 后端: Node.js + Express
 - 数据库: MongoDB
+- 版本控制: Git
 
 ## 功能特点
 
@@ -42,7 +43,8 @@ et-resource-site/
 │   ├── index.js            # 入口文件
 │   └── package.json        # 依赖配置
 │
-└── README.md               # 项目说明
+├── README.md               # 项目说明
+└── CONTRIBUTING.md         # 贡献指南
 ```
 
 ## 快速开始
@@ -81,6 +83,18 @@ npm run dev
 - GET `/api/news` - 获取新闻列表，支持分页
 - GET `/api/news/:id` - 获取单个新闻详情
 
+## 版本控制
+
+项目使用Git进行版本控制，采用基于功能分支的工作流程:
+
+- `main`: 稳定的生产代码分支
+- `develop`: 开发中的集成分支
+- `feature/*`: 新功能开发分支
+- `bugfix/*`: 错误修复分支
+- `release/*`: 发布准备分支
+
+详细的贡献流程请参考[贡献指南](CONTRIBUTING.md)。
+
 ## 部署
 
 项目部署在阿里云服务器，通过域名 `zyxz123.com` 访问。
@@ -94,7 +108,7 @@ npm run dev
 
 ## 贡献
 
-欢迎提交Pull Request或提出Issues。
+欢迎提交Pull Request或提出Issues。请先阅读[贡献指南](CONTRIBUTING.md)了解如何参与项目开发。
 
 ## 许可证
 
