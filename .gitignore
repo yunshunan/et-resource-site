@@ -23,4 +23,11 @@ yarn-error.log*
 
 # 操作系统文件
 .DS_Store
-Thumbs.db 
+Thumbs.db
+
+# macOS隐藏文件
+._*
+
+# 测试覆盖率报告
+frontend/coverage/
+backend/coverage/ 

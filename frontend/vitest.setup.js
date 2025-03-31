@@ -33,4 +33,16 @@ const originalSetItem = global.localStorage.setItem
 global.localStorage.setItem = function(key, value) {
   global.__storageSetSpy(key, value)
   return originalSetItem.apply(this, arguments)
+}
+
+// 抑制已知的网络错误日志
+const originalConsoleError = console.error
+console.error = function(...args) {
+  const errorMessage = args.join(' ')
+  if (errorMessage.includes('Network Error') || 
+      errorMessage.includes('401 Unauthorized') || 
+      errorMessage.includes('Request failed with status code')) {
+    return // 忽略这些已知错误
+  }
+  originalConsoleError.apply(console, args)
 } 

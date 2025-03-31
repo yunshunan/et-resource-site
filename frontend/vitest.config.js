@@ -8,6 +8,15 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./vitest.setup.js'],
+    silent: process.env.CI === 'true',
+    onConsoleLog(log) {
+      if (log.includes('Network Error') || 
+          log.includes('401 Unauthorized') || 
+          log.includes('Request failed with status code')) {
+        return false;
+      }
+      return true;
+    },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov', 'html', 'json-summary'],
