@@ -54,11 +54,31 @@ jobs:
       working-directory: ./frontend
       run: npm run test:coverage
     
+    - name: Check Coverage Thresholds
+      working-directory: ./frontend
+      run: |
+        npx nyc check-coverage --statements 90 --branches 65 --functions 75 --lines 90
+        if [ $? -ne 0 ]; then
+          echo "Coverage thresholds not met!"
+          exit 1
+        fi
+    
     - name: Upload Coverage Report
       uses: actions/upload-artifact@v3
       with:
         name: coverage-report
         path: frontend/coverage/
+    
+    - name: Generate Coverage Badge
+      run: |
+        npm install -g coverage-badges-cli
+        coverage-badges-cli --token ${{ secrets.GITHUB_TOKEN }} --source=frontend/coverage/coverage-summary.json --target=frontend/coverage-badges
+    
+    - name: Upload Coverage Badges
+      uses: actions/upload-artifact@v3
+      with:
+        name: coverage-badges
+        path: frontend/coverage-badges/
     
     - name: Install Backend Dependencies
       working-directory: ./backend
@@ -129,4 +149,13 @@ jobs:
       uses: actions/upload-artifact@v3
       with:
         name: frontend-build
-        path: frontend/dist/ 
+        path: frontend/dist/
+    
+    - name: Upload Coverage Report to GitHub Pages
+      if: github.ref == 'refs/heads/main'
+      uses: JamesIves/github-pages-deploy-action@v4
+      with:
+        folder: frontend/coverage/html
+        target-folder: coverage-report
+        token: ${{ secrets.GITHUB_TOKEN }}
+        branch: gh-pages 
