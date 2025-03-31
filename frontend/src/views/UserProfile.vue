@@ -130,24 +130,27 @@
             
             <!-- 我的资源 -->
             <div v-if="activeTab === 'resources'">
-              <div class="alert alert-info" role="alert">
-                您尚未上传任何资源。
+              <div class="d-flex justify-content-between align-items-center mb-3">
+                <p class="text-muted">管理您上传的资源</p>
+                <router-link to="/resources/upload" class="btn btn-primary btn-sm">
+                  <i class="bi bi-plus-lg me-2"></i>上传新资源
+                </router-link>
               </div>
               
-              <button class="btn btn-outline-primary">
-                <i class="bi bi-upload me-2"></i>上传新资源
-              </button>
+              <router-link to="/resources/my" class="btn btn-outline-primary d-block">
+                <i class="bi bi-grid me-2"></i>查看我的全部资源
+              </router-link>
             </div>
             
             <!-- 收藏夹 -->
             <div v-if="activeTab === 'favorites'">
-              <div class="alert alert-info" role="alert">
-                您的收藏夹还是空的。
+              <div class="d-flex justify-content-between align-items-center mb-3">
+                <p class="text-muted">管理您收藏的资源</p>
               </div>
               
-              <a href="/resource-market" class="btn btn-outline-primary">
-                <i class="bi bi-search me-2"></i>浏览资源
-              </a>
+              <router-link to="/resources/favorites" class="btn btn-outline-primary d-block">
+                <i class="bi bi-bookmark-heart me-2"></i>查看我的收藏夹
+              </router-link>
             </div>
           </div>
         </div>

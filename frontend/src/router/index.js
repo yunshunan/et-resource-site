@@ -8,6 +8,9 @@ const News = () => import('@/views/News.vue')
 const Login = () => import('@/views/Login.vue')
 const Register = () => import('@/views/Register.vue')
 const UserProfile = () => import('@/views/UserProfile.vue')
+const UserResources = () => import('@/views/UserResources.vue')
+const UserFavorites = () => import('@/views/UserFavorites.vue')
+const ResourceUpload = () => import('@/views/ResourceUpload.vue')
 const Contact = () => import('@/views/Contact.vue')
 const AboutUs = () => import('@/views/AboutUs.vue')
 const BusinessCooperation = () => import('@/views/BusinessCooperation.vue')
@@ -56,6 +59,33 @@ const routes = [
     meta: { 
       title: '个人中心 - Et 资源小站',
       requiresAuth: true // 需要登录才能访问
+    }
+  },
+  {
+    path: '/resources/my',
+    name: 'UserResources',
+    component: UserResources,
+    meta: { 
+      title: '我的资源 - Et 资源小站',
+      requiresAuth: true
+    }
+  },
+  {
+    path: '/resources/favorites',
+    name: 'UserFavorites',
+    component: UserFavorites,
+    meta: {
+      title: '我的收藏 - Et 资源小站',
+      requiresAuth: true
+    }
+  },
+  {
+    path: '/resources/upload',
+    name: 'ResourceUpload',
+    component: ResourceUpload,
+    meta: {
+      title: '上传资源 - Et 资源小站',
+      requiresAuth: true
     }
   },
   {
