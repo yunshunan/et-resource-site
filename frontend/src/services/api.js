@@ -7,6 +7,10 @@ const api = axios.create({
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json'
+  },
+  // 允许特定状态码不抛出错误，以便在响应拦截器中统一处理
+  validateStatus: function (status) {
+    return (status >= 200 && status < 300) || status === 404; // 允许404错误通过响应拦截器处理
   }
 })
 

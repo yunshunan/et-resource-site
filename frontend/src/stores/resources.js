@@ -34,9 +34,12 @@ export const useResourceStore = defineStore('resources', {
     
     // 检查指定资源是否已收藏
     isFavorited: (state) => (resourceId) => {
+      // 确保资源存在
       if (!state.resource) return false;
-      return !!(state.resource.favorites && 
-             state.resource.favorites.includes(state.user?.id));
+      
+      // 确保资源有favorites属性
+      return Boolean(state.resource.favorites && 
+               state.resource.favorites.includes(resourceId));
     }
   },
   
@@ -60,11 +63,16 @@ export const useResourceStore = defineStore('resources', {
         
         const response = await axios.get('/resources', { params: queryParams });
         
-        if (response.success) {
-          this.resources = response.data;
-          this.pagination = response.pagination;
+        // 统一处理响应结果
+        if (response && response.success) {
+          this.resources = response.data || [];
+          this.pagination = response.pagination || {
+            currentPage: 1,
+            totalPages: 1,
+            total: 0
+          };
         } else {
-          throw new Error(response.message || '获取资源列表失败');
+          throw new Error(response?.message || '获取资源列表失败');
         }
       } catch (error) {
         console.error('获取资源列表失败:', error);
@@ -82,10 +90,11 @@ export const useResourceStore = defineStore('resources', {
       try {
         const response = await axios.get(`/resources/${id}`);
         
-        if (response.success) {
-          this.resource = response.data;
+        // 统一处理响应结果
+        if (response && response.success) {
+          this.resource = response.data || null;
         } else {
-          throw new Error(response.message || '获取资源详情失败');
+          throw new Error(response?.message || '获取资源详情失败');
         }
       } catch (error) {
         console.error('获取资源详情失败:', error);
@@ -103,10 +112,11 @@ export const useResourceStore = defineStore('resources', {
       try {
         const response = await axios.post('/resources', resourceData);
         
-        if (response.success) {
-          return response.data;
+        // 统一处理响应结果
+        if (response && response.success) {
+          return response.data || null;
         } else {
-          throw new Error(response.message || '创建资源失败');
+          throw new Error(response?.message || '创建资源失败');
         }
       } catch (error) {
         console.error('创建资源失败:', error);
@@ -125,14 +135,15 @@ export const useResourceStore = defineStore('resources', {
       try {
         const response = await axios.put(`/resources/${id}`, resourceData);
         
-        if (response.success) {
+        // 统一处理响应结果
+        if (response && response.success) {
           // 如果当前正在查看的是这个资源，更新本地数据
           if (this.resource && this.resource._id === id) {
-            this.resource = response.data;
+            this.resource = response.data || null;
           }
-          return response.data;
+          return response.data || null;
         } else {
-          throw new Error(response.message || '更新资源失败');
+          throw new Error(response?.message || '更新资源失败');
         }
       } catch (error) {
         console.error('更新资源失败:', error);
@@ -151,12 +162,13 @@ export const useResourceStore = defineStore('resources', {
       try {
         const response = await axios.delete(`/resources/${id}`);
         
-        if (response.success) {
+        // 统一处理响应结果
+        if (response && response.success) {
           // 从本地列表中移除
           this.resources = this.resources.filter(r => r._id !== id);
           return true;
         } else {
-          throw new Error(response.message || '删除资源失败');
+          throw new Error(response?.message || '删除资源失败');
         }
       } catch (error) {
         console.error('删除资源失败:', error);
@@ -174,15 +186,16 @@ export const useResourceStore = defineStore('resources', {
       try {
         const response = await axios.put(`/resources/${id}/favorite`);
         
-        if (response.success) {
+        // 统一处理响应结果
+        if (response && response.success) {
           // 如果当前正在查看的是这个资源，更新收藏状态
           if (this.resource && this.resource._id === id) {
-            this.resource.favorites = response.data.favorites;
-            this.resource.favoriteCount = response.data.favoriteCount;
+            this.resource.favorites = response.data?.favorites || [];
+            this.resource.favoriteCount = response.data?.favoriteCount || 0;
           }
-          return response.data;
+          return response.data || null;
         } else {
-          throw new Error(response.message || '操作收藏失败');
+          throw new Error(response?.message || '操作收藏失败');
         }
       } catch (error) {
         console.error('操作收藏失败:', error);
@@ -198,15 +211,16 @@ export const useResourceStore = defineStore('resources', {
       try {
         const response = await axios.post(`/resources/${id}/rating`, { rating });
         
-        if (response.success) {
+        // 统一处理响应结果
+        if (response && response.success) {
           // 如果当前正在查看的是这个资源，更新评分
           if (this.resource && this.resource._id === id) {
-            this.resource.averageRating = response.data.averageRating;
-            this.resource.ratingCount = response.data.ratingCount;
+            this.resource.averageRating = response.data?.averageRating || 0;
+            this.resource.ratingCount = response.data?.ratingCount || 0;
           }
-          return response.data;
+          return response.data || null;
         } else {
-          throw new Error(response.message || '评分失败');
+          throw new Error(response?.message || '评分失败');
         }
       } catch (error) {
         console.error('评分失败:', error);
@@ -225,11 +239,16 @@ export const useResourceStore = defineStore('resources', {
           params: { page } 
         });
         
-        if (response.success) {
-          this.favorites = response.data;
-          this.pagination = response.pagination;
+        // 统一处理响应结果
+        if (response && response.success) {
+          this.favorites = response.data || [];
+          this.pagination = response.pagination || {
+            currentPage: 1,
+            totalPages: 1,
+            total: 0
+          };
         } else {
-          throw new Error(response.message || '获取收藏列表失败');
+          throw new Error(response?.message || '获取收藏列表失败');
         }
       } catch (error) {
         console.error('获取收藏列表失败:', error);

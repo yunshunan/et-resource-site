@@ -1,6 +1,10 @@
 import { defineConfig } from 'vitest/config'
 import vue from '@vitejs/plugin-vue'
 import { fileURLToPath, URL } from 'node:url'
+import path from 'path'
+
+// 导入ESM格式的日志过滤函数
+import { filterTestLog } from './scripts/vitestLogFilter.js'
 
 export default defineConfig({
   plugins: [vue()],
@@ -9,13 +13,24 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./vitest.setup.js'],
     silent: process.env.CI === 'true',
-    onConsoleLog(log) {
-      if (log.includes('Network Error') || 
-          log.includes('401 Unauthorized') || 
-          log.includes('Request failed with status code')) {
-        return false;
+    onConsoleLog(log, type, options) {
+      // 识别日志来源
+      let source = 'unknown';
+      
+      // 尝试从测试文件路径识别模块
+      if (options && options.file) {
+        const filePath = options.file;
+        if (filePath.includes('auth')) {
+          source = 'auth';
+        } else if (filePath.includes('resources')) {
+          source = 'resources';
+        } else if (filePath.includes('api') || filePath.includes('axios')) {
+          source = 'axios';
+        }
       }
-      return true;
+      
+      // 使用ESM格式的过滤函数
+      return filterTestLog(log, source, type || 'log');
     },
     coverage: {
       provider: 'v8',
