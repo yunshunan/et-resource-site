@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import axios from '@/services/api'
+import { wrapApiCall } from '@/utils/errorHandler'
 
 export const useResourceStore = defineStore('resources', {
   state: () => ({
@@ -46,9 +47,6 @@ export const useResourceStore = defineStore('resources', {
   actions: {
     // 获取资源列表
     async fetchResources(page = 1, filters = {}) {
-      this.loading = true;
-      this.error = null;
-      
       try {
         // 合并过滤条件
         const queryParams = {
@@ -61,200 +59,171 @@ export const useResourceStore = defineStore('resources', {
         if (filters.category !== undefined) this.filters.category = filters.category;
         if (filters.search !== undefined) this.filters.search = filters.search;
         
-        const response = await axios.get('/resources', { params: queryParams });
+        // 使用包装的API调用
+        const result = await wrapApiCall(
+          () => axios.get('/resources', { params: queryParams }),
+          this,
+          '获取资源列表失败'
+        );
         
-        // 统一处理响应结果
-        if (response && response.success) {
-          this.resources = response.data || [];
-          this.pagination = response.pagination || {
-            currentPage: 1,
-            totalPages: 1,
-            total: 0
-          };
-        } else {
-          throw new Error(response?.message || '获取资源列表失败');
+        // 更新状态
+        this.resources = result || [];
+        
+        // 更新分页信息
+        if (result && result.pagination) {
+          this.pagination = result.pagination;
         }
+        
+        return result;
       } catch (error) {
-        console.error('获取资源列表失败:', error);
-        this.error = error.message || '获取资源列表失败，请稍后再试';
-      } finally {
-        this.loading = false;
+        // 错误已经由wrapApiCall处理，这里只需要返回null
+        return null;
       }
     },
     
     // 获取资源详情
     async fetchResourceById(id) {
-      this.loading = true;
-      this.error = null;
-      
       try {
-        const response = await axios.get(`/resources/${id}`);
+        // 使用包装的API调用
+        const result = await wrapApiCall(
+          () => axios.get(`/resources/${id}`),
+          this,
+          '获取资源详情失败'
+        );
         
-        // 统一处理响应结果
-        if (response && response.success) {
-          this.resource = response.data || null;
-        } else {
-          throw new Error(response?.message || '获取资源详情失败');
-        }
+        // 更新状态
+        this.resource = result || null;
+        return result;
       } catch (error) {
-        console.error('获取资源详情失败:', error);
-        this.error = error.message || '获取资源详情失败，请稍后再试';
-      } finally {
-        this.loading = false;
+        // 错误已经由wrapApiCall处理，这里只需要返回null
+        return null;
       }
     },
     
     // 创建资源
     async createResource(resourceData) {
-      this.loading = true;
-      this.error = null;
-      
       try {
-        const response = await axios.post('/resources', resourceData);
-        
-        // 统一处理响应结果
-        if (response && response.success) {
-          return response.data || null;
-        } else {
-          throw new Error(response?.message || '创建资源失败');
-        }
+        // 使用包装的API调用
+        return await wrapApiCall(
+          () => axios.post('/resources', resourceData),
+          this,
+          '创建资源失败'
+        );
       } catch (error) {
-        console.error('创建资源失败:', error);
-        this.error = error.message || '创建资源失败，请稍后再试';
+        // 错误已经由wrapApiCall处理，这里只需要返回null
         return null;
-      } finally {
-        this.loading = false;
       }
     },
     
     // 更新资源
     async updateResource(id, resourceData) {
-      this.loading = true;
-      this.error = null;
-      
       try {
-        const response = await axios.put(`/resources/${id}`, resourceData);
+        // 使用包装的API调用
+        const result = await wrapApiCall(
+          () => axios.put(`/resources/${id}`, resourceData),
+          this,
+          '更新资源失败'
+        );
         
-        // 统一处理响应结果
-        if (response && response.success) {
-          // 如果当前正在查看的是这个资源，更新本地数据
-          if (this.resource && this.resource._id === id) {
-            this.resource = response.data || null;
-          }
-          return response.data || null;
-        } else {
-          throw new Error(response?.message || '更新资源失败');
+        // 如果当前正在查看的是这个资源，更新本地数据
+        if (result && this.resource && this.resource._id === id) {
+          this.resource = result;
         }
+        
+        return result;
       } catch (error) {
-        console.error('更新资源失败:', error);
-        this.error = error.message || '更新资源失败，请稍后再试';
+        // 错误已经由wrapApiCall处理，这里只需要返回null
         return null;
-      } finally {
-        this.loading = false;
       }
     },
     
     // 删除资源
     async deleteResource(id) {
-      this.loading = true;
-      this.error = null;
-      
       try {
-        const response = await axios.delete(`/resources/${id}`);
+        // 使用包装的API调用
+        await wrapApiCall(
+          () => axios.delete(`/resources/${id}`),
+          this,
+          '删除资源失败'
+        );
         
-        // 统一处理响应结果
-        if (response && response.success) {
-          // 从本地列表中移除
-          this.resources = this.resources.filter(r => r._id !== id);
-          return true;
-        } else {
-          throw new Error(response?.message || '删除资源失败');
-        }
+        // 从本地列表中移除
+        this.resources = this.resources.filter(r => r._id !== id);
+        return true;
       } catch (error) {
-        console.error('删除资源失败:', error);
-        this.error = error.message || '删除资源失败，请稍后再试';
+        // 错误已经由wrapApiCall处理，这里只需要返回false
         return false;
-      } finally {
-        this.loading = false;
       }
     },
     
     // 收藏/取消收藏
     async toggleFavorite(id) {
-      this.error = null;
-      
       try {
-        const response = await axios.put(`/resources/${id}/favorite`);
+        // 使用包装的API调用
+        const result = await wrapApiCall(
+          () => axios.put(`/resources/${id}/favorite`),
+          this,
+          '操作收藏失败'
+        );
         
-        // 统一处理响应结果
-        if (response && response.success) {
-          // 如果当前正在查看的是这个资源，更新收藏状态
-          if (this.resource && this.resource._id === id) {
-            this.resource.favorites = response.data?.favorites || [];
-            this.resource.favoriteCount = response.data?.favoriteCount || 0;
-          }
-          return response.data || null;
-        } else {
-          throw new Error(response?.message || '操作收藏失败');
+        // 如果当前正在查看的是这个资源，更新收藏状态
+        if (result && this.resource && this.resource._id === id) {
+          this.resource.favorites = result.favorites || [];
+          this.resource.favoriteCount = result.favoriteCount || 0;
         }
+        
+        return result;
       } catch (error) {
-        console.error('操作收藏失败:', error);
-        this.error = error.message || '操作收藏失败，请稍后再试';
+        // 错误已经由wrapApiCall处理，这里只需要返回null
         return null;
       }
     },
     
     // 评分
     async rateResource(id, rating) {
-      this.error = null;
-      
       try {
-        const response = await axios.post(`/resources/${id}/rating`, { rating });
+        // 使用包装的API调用
+        const result = await wrapApiCall(
+          () => axios.post(`/resources/${id}/rating`, { rating }),
+          this,
+          '评分失败'
+        );
         
-        // 统一处理响应结果
-        if (response && response.success) {
-          // 如果当前正在查看的是这个资源，更新评分
-          if (this.resource && this.resource._id === id) {
-            this.resource.averageRating = response.data?.averageRating || 0;
-            this.resource.ratingCount = response.data?.ratingCount || 0;
-          }
-          return response.data || null;
-        } else {
-          throw new Error(response?.message || '评分失败');
+        // 如果当前正在查看的是这个资源，更新评分
+        if (result && this.resource && this.resource._id === id) {
+          this.resource.averageRating = result.averageRating || 0;
+          this.resource.ratingCount = result.ratingCount || 0;
         }
+        
+        return result;
       } catch (error) {
-        console.error('评分失败:', error);
-        this.error = error.message || '评分失败，请稍后再试';
+        // 错误已经由wrapApiCall处理，这里只需要返回null
         return null;
       }
     },
     
     // 获取用户收藏的资源
     async fetchFavorites(page = 1) {
-      this.loading = true;
-      this.error = null;
-      
       try {
-        const response = await axios.get('/resources/user/favorites', { 
-          params: { page } 
-        });
+        // 使用包装的API调用
+        const result = await wrapApiCall(
+          () => axios.get('/resources/user/favorites', { params: { page } }),
+          this,
+          '获取收藏列表失败'
+        );
         
-        // 统一处理响应结果
-        if (response && response.success) {
-          this.favorites = response.data || [];
-          this.pagination = response.pagination || {
-            currentPage: 1,
-            totalPages: 1,
-            total: 0
-          };
-        } else {
-          throw new Error(response?.message || '获取收藏列表失败');
+        // 更新状态
+        this.favorites = result || [];
+        
+        // 更新分页信息
+        if (result && result.pagination) {
+          this.pagination = result.pagination;
         }
+        
+        return result;
       } catch (error) {
-        console.error('获取收藏列表失败:', error);
-        this.error = error.message || '获取收藏列表失败，请稍后再试';
-      } finally {
-        this.loading = false;
+        // 错误已经由wrapApiCall处理，这里只需要返回null
+        return null;
       }
     }
   }

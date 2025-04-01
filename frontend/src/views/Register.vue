@@ -115,6 +115,13 @@
 import { reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { 
+  isValidUsername, 
+  isValidEmail, 
+  isValidPassword, 
+  isPasswordMatch, 
+  validateForm 
+} from '@/utils/formValidator'
 
 export default {
   name: 'RegisterPage',
@@ -138,50 +145,50 @@ export default {
       agreement: ''
     })
     
-    const validateForm = () => {
+    const validateFormData = () => {
+      // 定义验证规则
+      const rules = {
+        username: [
+          { required: true, message: '用户名不能为空' },
+          { validator: (value) => isValidUsername(value, 3), message: '用户名至少需要3个字符' }
+        ],
+        email: [
+          { required: true, message: '邮箱不能为空' },
+          { validator: isValidEmail, message: '请输入有效的邮箱地址' }
+        ],
+        password: [
+          { required: true, message: '密码不能为空' },
+          { validator: (value) => isValidPassword(value, { minLength: 6 }), message: '密码至少需要6个字符' }
+        ],
+        confirmPassword: [
+          { required: true, message: '请确认密码' },
+          { validator: (value) => isPasswordMatch(formData.password, value), message: '两次输入的密码不一致' }
+        ],
+        agreement: [
+          { validator: (value) => value === true, message: '请阅读并同意服务条款和隐私政策' }
+        ]
+      }
+      
       // 重置错误信息
       Object.keys(formErrors).forEach(key => {
         formErrors[key] = ''
       })
       
-      let isValid = true
+      // 验证表单
+      const { isValid, errors } = validateForm(formData, rules)
       
-      // 用户名验证
-      if (formData.username.length < 3) {
-        formErrors.username = '用户名至少需要3个字符'
-        isValid = false
-      }
-      
-      // 邮箱验证
-      const emailRegex = /^\w+([-]?\w+)*@\w+([-]?\w+)*(\.\w{2,3})+$/
-      if (!emailRegex.test(formData.email)) {
-        formErrors.email = '请输入有效的邮箱地址'
-        isValid = false
-      }
-      
-      // 密码验证
-      if (formData.password.length < 6) {
-        formErrors.password = '密码至少需要6个字符'
-        isValid = false
-      }
-      
-      // 确认密码
-      if (formData.password !== formData.confirmPassword) {
-        formErrors.confirmPassword = '两次输入的密码不一致'
-        isValid = false
-      }
-      
-      // 协议勾选
-      if (!formData.agreement) {
-        formErrors.agreement = '请阅读并同意服务条款和隐私政策'
-        isValid = false
+      // 设置错误信息
+      if (!isValid) {
+        Object.entries(errors).forEach(([field, message]) => {
+          formErrors[field] = message
+        })
       }
       
       return isValid
     }
     
     const handleRegister = async () => {
-      if (!validateForm()) {
+      if (!validateFormData()) {
         return
       }
       
@@ -199,7 +206,7 @@ export default {
       }
     }
     
-    // 修复不必要的转义字符
+    // 保留这个注释和函数以避免ESLint错误
     // eslint-disable-next-line no-unused-vars
     const validatePassword = (rule, value, callback) => {
       // 密码必须包含数字、字母和特殊字符
