@@ -1,0 +1,59 @@
+name: Performance Testing
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  performance-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v2
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v2
+      with:
+        node-version: '16'
+        
+    - name: Install dependencies
+      run: |
+        cd frontend
+        npm ci
+        
+    - name: Run performance tests
+      run: |
+        cd frontend
+        node scripts/performance-test.js
+      env:
+        NODE_ENV: test
+        PERFORMANCE_TEST_ENABLED: true
+        
+    - name: Upload test report
+      if: always()
+      uses: actions/upload-artifact@v2
+      with:
+        name: performance-test-report
+        path: frontend/reports/performance/
+        
+    - name: Send notification on failure
+      if: failure()
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const { data: issue } = await github.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: '性能测试失败',
+            body: `性能测试在 ${context.sha} 提交中失败。\n\n请查看测试报告了解详细信息。`
+          });
+          
+          // 添加标签
+          await github.rest.issues.addLabels({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: issue.number,
+            labels: ['performance', 'bug']
+          }); 
