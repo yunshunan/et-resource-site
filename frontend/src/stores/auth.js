@@ -30,16 +30,20 @@ export const useAuthStore = defineStore('auth', {
       
       try {
         const response = await authApi.login({ email, password })
-        if (response.success) {
-          this.user = response.user
-          this.token = response.accessToken
-          this.refreshToken = response.refreshToken
-          this.isAuthenticated = true
+        
+        // 确保响应格式一致
+        if (response && (response.success || response.data)) {
+          // 兼容不同响应格式
+          this.user = response.data?.user || response.user || null
+          this.token = response.data?.tokens?.accessToken || response.accessToken || null
+          this.refreshToken = response.data?.tokens?.refreshToken || response.refreshToken || null
+          this.isAuthenticated = !!this.token
           return true
         } else {
           throw new Error(response.message || '登录失败')
         }
       } catch (error) {
+        console.error('登录失败:', error)
         this.error = error.response?.data?.message || error.message || '登录失败，请检查您的账号和密码'
         return false
       } finally {
@@ -54,16 +58,20 @@ export const useAuthStore = defineStore('auth', {
       
       try {
         const response = await authApi.register(userData)
-        if (response.success) {
-          this.user = response.user
-          this.token = response.accessToken
-          this.refreshToken = response.refreshToken
-          this.isAuthenticated = true
+        
+        // 确保响应格式一致
+        if (response && (response.success || response.data)) {
+          // 兼容不同响应格式
+          this.user = response.data?.user || response.user || null
+          this.token = response.data?.tokens?.accessToken || response.accessToken || null
+          this.refreshToken = response.data?.tokens?.refreshToken || response.refreshToken || null
+          this.isAuthenticated = !!this.token
           return true
         } else {
           throw new Error(response.message || '注册失败')
         }
       } catch (error) {
+        console.error('注册失败:', error)
         this.error = error.response?.data?.message || error.message || '注册失败，请稍后再试'
         return false
       } finally {
@@ -80,34 +88,43 @@ export const useAuthStore = defineStore('auth', {
       } catch (error) {
         console.error('注销时发生错误:', error)
       } finally {
-        this.user = null
-        this.token = null
-        this.refreshToken = null
-        this.isAuthenticated = false
-        this.error = null
+        this.clearAuth()
       }
+    },
+    
+    // 清除认证状态
+    clearAuth() {
+      this.user = null
+      this.token = null
+      this.refreshToken = null
+      this.isAuthenticated = false
+      this.error = null
     },
     
     // 获取当前用户信息
     async fetchCurrentUser() {
-      if (!this.token) return
+      if (!this.token) return false
       
       this.loading = true
+      this.error = null
       
       try {
         const response = await authApi.getMe()
-        if (response.success) {
-          this.user = response.data
+        if (response && (response.success || response.data)) {
+          this.user = response.data || null
           this.isAuthenticated = true
+          return true
         } else {
           throw new Error(response.message || '获取用户信息失败')
         }
       } catch (error) {
         this.error = error.response?.data?.message || error.message || '获取用户信息失败'
+        
         // 如果出现401错误，表示token已过期，执行注销
         if (error.response?.status === 401) {
-          this.logout()
+          this.clearAuth()
         }
+        return false
       } finally {
         this.loading = false
       }
@@ -119,15 +136,16 @@ export const useAuthStore = defineStore('auth', {
       
       try {
         const response = await authApi.refreshToken(this.refreshToken)
-        if (response.success) {
-          this.token = response.accessToken
-          return true
+        if (response && (response.success || response.data)) {
+          // 兼容不同响应格式
+          this.token = response.data?.accessToken || response.accessToken || null
+          return !!this.token
         }
         return false
       } catch (error) {
         console.error('刷新token失败:', error)
         // 如果刷新失败，执行注销
-        await this.logout()
+        this.clearAuth()
         return false
       }
     }

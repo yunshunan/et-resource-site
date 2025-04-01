@@ -9,6 +9,7 @@ import { rest } from 'msw'
 // 导入处理程序
 import authHandlers from './handlers/auth'
 import resourceHandlers from './handlers/resources'
+import apiServiceMock from './mockHelpers'
 
 // 创建默认处理器 - 这些将覆盖所有未明确处理的请求
 const defaultHandlers = [
@@ -131,6 +132,9 @@ export function createServerErrorHandler(method, url, status = 500, message = '�
     )
   })
 }
+
+// 添加模拟辅助对象导出
+export { apiServiceMock }
 
 // 导出
 export default server 
