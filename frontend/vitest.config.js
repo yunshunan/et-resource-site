@@ -1,7 +1,7 @@
 import { defineConfig } from 'vitest/config'
 import vue from '@vitejs/plugin-vue'
 import { fileURLToPath, URL } from 'node:url'
-import path from 'path'
+// import path from 'path'
 
 // 导入ESM格式的日志过滤函数
 import { filterTestLog } from './scripts/vitestLogFilter.js'
