@@ -51,6 +51,9 @@
                     v-model="userForm.username" 
                     placeholder="请输入用户名"
                   >
+                  <div v-if="userFormErrors.username" class="form-text text-danger">
+                    {{ userFormErrors.username }}
+                  </div>
                 </div>
                 
                 <div class="mb-3">
@@ -95,6 +98,9 @@
                     placeholder="请输入当前密码"
                     required
                   >
+                  <div v-if="passwordFormErrors.currentPassword" class="form-text text-danger">
+                    {{ passwordFormErrors.currentPassword }}
+                  </div>
                 </div>
                 
                 <div class="mb-3">
@@ -107,6 +113,9 @@
                     placeholder="请输入新密码"
                     required
                   >
+                  <div v-if="passwordFormErrors.newPassword" class="form-text text-danger">
+                    {{ passwordFormErrors.newPassword }}
+                  </div>
                   <div class="form-text">密码长度至少6个字符</div>
                 </div>
                 
@@ -120,6 +129,9 @@
                     placeholder="请再次输入新密码"
                     required
                   >
+                  <div v-if="passwordFormErrors.confirmPassword" class="form-text text-danger">
+                    {{ passwordFormErrors.confirmPassword }}
+                  </div>
                 </div>
                 
                 <button type="submit" class="btn btn-primary">
@@ -162,6 +174,12 @@
 <script>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import { 
+  isValidUsername, 
+  isValidPassword, 
+  isPasswordMatch, 
+  validateForm 
+} from '@/utils/formValidator'
 
 export default {
   name: 'UserProfileView',
@@ -194,12 +212,88 @@ export default {
       avatar: null
     })
     
+    // 用户信息表单错误
+    const userFormErrors = reactive({
+      username: '',
+      email: ''
+    })
+    
     // 密码表单
     const passwordForm = reactive({
       currentPassword: '',
       newPassword: '',
       confirmPassword: ''
     })
+    
+    // 密码表单错误
+    const passwordFormErrors = reactive({
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: ''
+    })
+    
+    // 验证用户信息表单
+    const validateUserForm = () => {
+      // 定义验证规则
+      const rules = {
+        username: [
+          { required: true, message: '用户名不能为空' },
+          { validator: (value) => isValidUsername(value, 3), message: '用户名至少需要3个字符' }
+        ]
+      }
+      
+      // 重置错误信息
+      Object.keys(userFormErrors).forEach(key => {
+        userFormErrors[key] = ''
+      })
+      
+      // 验证表单
+      const { isValid, errors } = validateForm(userForm, rules)
+      
+      // 设置错误信息
+      if (!isValid) {
+        Object.entries(errors).forEach(([field, message]) => {
+          userFormErrors[field] = message
+        })
+      }
+      
+      return isValid
+    }
+    
+    // 验证密码表单
+    const validatePasswordForm = () => {
+      // 定义验证规则
+      const rules = {
+        currentPassword: [
+          { required: true, message: '当前密码不能为空' }
+        ],
+        newPassword: [
+          { required: true, message: '新密码不能为空' },
+          { validator: (value) => isValidPassword(value, { minLength: 6 }), message: '密码至少需要6个字符' }
+        ],
+        confirmPassword: [
+          { required: true, message: '请确认新密码' },
+          { validator: (value) => isPasswordMatch(passwordForm.newPassword, value), message: '两次输入的密码不一致' }
+        ]
+      }
+      
+      // 重置错误信息
+      Object.keys(passwordFormErrors).forEach(key => {
+        passwordFormErrors[key] = ''
+      })
+      
+      // 验证表单
+      const { isValid, errors } = validateForm(passwordForm, rules)
+      
+      // 设置错误信息
+      if (!isValid) {
+        Object.entries(errors).forEach(([field, message]) => {
+          passwordFormErrors[field] = message
+        })
+      }
+      
+      return isValid
+    }
     
     // 处理头像上传
     const handleAvatarChange = (event) => {
@@ -219,6 +313,10 @@ export default {
     
     // 更新用户信息
     const updateUserInfo = async () => {
+      if (!validateUserForm()) {
+        return
+      }
+      
       try {
         // TODO: 实现头像上传和用户信息更新API
         alert('用户信息更新功能将在下一版本实现')
@@ -229,13 +327,7 @@ export default {
     
     // 更新密码
     const updatePassword = async () => {
-      if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-        alert('两次输入的密码不一致')
-        return
-      }
-      
-      if (passwordForm.newPassword.length < 6) {
-        alert('密码长度至少需要6个字符')
+      if (!validatePasswordForm()) {
         return
       }
       
@@ -270,7 +362,9 @@ export default {
       tabs,
       activeTabName,
       userForm,
+      userFormErrors,
       passwordForm,
+      passwordFormErrors,
       userAvatar,
       handleAvatarChange,
       updateUserInfo,

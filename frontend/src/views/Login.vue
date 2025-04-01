@@ -17,10 +17,13 @@
                   type="email" 
                   class="form-control" 
                   id="email" 
-                  v-model="email" 
+                  v-model="formData.email" 
                   required
                   placeholder="请输入您的邮箱"
                 >
+                <div v-if="formErrors.email" class="form-text text-danger">
+                  {{ formErrors.email }}
+                </div>
               </div>
               
               <div class="mb-4">
@@ -29,10 +32,13 @@
                   type="password" 
                   class="form-control" 
                   id="password" 
-                  v-model="password" 
+                  v-model="formData.password" 
                   required
                   placeholder="请输入密码"
                 >
+                <div v-if="formErrors.password" class="form-text text-danger">
+                  {{ formErrors.password }}
+                </div>
                 <div class="form-text text-end">
                   <router-link to="/forgot-password" class="text-decoration-none">忘记密码?</router-link>
                 </div>
@@ -62,9 +68,10 @@
 </template>
 
 <script>
-import { ref } from 'vue'
+import { reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { isValidEmail, validateForm } from '@/utils/formValidator'
 
 export default {
   name: 'LoginView',
@@ -72,11 +79,52 @@ export default {
     const router = useRouter()
     const authStore = useAuthStore()
     
-    const email = ref('')
-    const password = ref('')
+    const formData = reactive({
+      email: '',
+      password: ''
+    })
+    
+    const formErrors = reactive({
+      email: '',
+      password: ''
+    })
+    
+    const validateFormData = () => {
+      // 定义验证规则
+      const rules = {
+        email: [
+          { required: true, message: '邮箱不能为空' },
+          { validator: isValidEmail, message: '请输入有效的邮箱地址' }
+        ],
+        password: [
+          { required: true, message: '密码不能为空' }
+        ]
+      }
+      
+      // 重置错误信息
+      Object.keys(formErrors).forEach(key => {
+        formErrors[key] = ''
+      })
+      
+      // 验证表单
+      const { isValid, errors } = validateForm(formData, rules)
+      
+      // 设置错误信息
+      if (!isValid) {
+        Object.entries(errors).forEach(([field, message]) => {
+          formErrors[field] = message
+        })
+      }
+      
+      return isValid
+    }
     
     const handleLogin = async () => {
-      const success = await authStore.login(email.value, password.value)
+      if (!validateFormData()) {
+        return
+      }
+      
+      const success = await authStore.login(formData.email, formData.password)
       
       if (success) {
         // 登录成功，跳转到首页或之前的页面
@@ -86,8 +134,8 @@ export default {
     }
     
     return {
-      email,
-      password,
+      formData,
+      formErrors,
       authStore,
       handleLogin
     }

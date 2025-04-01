@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { authApi } from '@/services/api'
+import { wrapApiCall } from '@/utils/errorHandler'
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
@@ -25,57 +26,49 @@ export const useAuthStore = defineStore('auth', {
   actions: {
     // 登录
     async login(email, password) {
-      this.loading = true
-      this.error = null
-      
       try {
-        const response = await authApi.login({ email, password })
+        const result = await wrapApiCall(
+          () => authApi.login({ email, password }),
+          this,
+          '登录失败'
+        );
         
-        // 确保响应格式一致
-        if (response && (response.success || response.data)) {
-          // 兼容不同响应格式
-          this.user = response.data?.user || response.user || null
-          this.token = response.data?.tokens?.accessToken || response.accessToken || null
-          this.refreshToken = response.data?.tokens?.refreshToken || response.refreshToken || null
-          this.isAuthenticated = !!this.token
-          return true
-        } else {
-          throw new Error(response.message || '登录失败')
+        if (result) {
+          // 提取用户信息和令牌
+          this.user = result.user || null;
+          this.token = result.tokens?.accessToken || result.accessToken || null;
+          this.refreshToken = result.tokens?.refreshToken || result.refreshToken || null;
+          this.isAuthenticated = !!this.token;
+          return true;
         }
+        
+        return false;
       } catch (error) {
-        console.error('登录失败:', error)
-        this.error = error.response?.data?.message || error.message || '登录失败，请检查您的账号和密码'
-        return false
-      } finally {
-        this.loading = false
+        return false;
       }
     },
     
     // 注册
     async register(userData) {
-      this.loading = true
-      this.error = null
-      
       try {
-        const response = await authApi.register(userData)
+        const result = await wrapApiCall(
+          () => authApi.register(userData),
+          this,
+          '注册失败'
+        );
         
-        // 确保响应格式一致
-        if (response && (response.success || response.data)) {
-          // 兼容不同响应格式
-          this.user = response.data?.user || response.user || null
-          this.token = response.data?.tokens?.accessToken || response.accessToken || null
-          this.refreshToken = response.data?.tokens?.refreshToken || response.refreshToken || null
-          this.isAuthenticated = !!this.token
-          return true
-        } else {
-          throw new Error(response.message || '注册失败')
+        if (result) {
+          // 提取用户信息和令牌
+          this.user = result.user || null;
+          this.token = result.tokens?.accessToken || result.accessToken || null;
+          this.refreshToken = result.tokens?.refreshToken || result.refreshToken || null;
+          this.isAuthenticated = !!this.token;
+          return true;
         }
+        
+        return false;
       } catch (error) {
-        console.error('注册失败:', error)
-        this.error = error.response?.data?.message || error.message || '注册失败，请稍后再试'
-        return false
-      } finally {
-        this.loading = false
+        return false;
       }
     },
     
@@ -83,70 +76,79 @@ export const useAuthStore = defineStore('auth', {
     async logout() {
       try {
         if (this.isAuthenticated) {
-          await authApi.logout()
+          await wrapApiCall(
+            () => authApi.logout(),
+            null, // 不需要设置loading和error状态
+            '注销失败'
+          );
         }
       } catch (error) {
-        console.error('注销时发生错误:', error)
+        // 即使注销失败，我们仍然要清除本地状态
+        console.error('注销失败:', error);
       } finally {
-        this.clearAuth()
+        // 清除认证状态
+        this.clearAuth();
       }
     },
     
     // 清除认证状态
     clearAuth() {
-      this.user = null
-      this.token = null
-      this.refreshToken = null
-      this.isAuthenticated = false
-      this.error = null
+      this.user = null;
+      this.token = null;
+      this.refreshToken = null;
+      this.isAuthenticated = false;
+      this.error = null;
     },
     
     // 获取当前用户信息
     async fetchCurrentUser() {
-      if (!this.token) return false
-      
-      this.loading = true
-      this.error = null
+      if (!this.token) return false;
       
       try {
-        const response = await authApi.getMe()
-        if (response && (response.success || response.data)) {
-          this.user = response.data || null
-          this.isAuthenticated = true
-          return true
-        } else {
-          throw new Error(response.message || '获取用户信息失败')
-        }
-      } catch (error) {
-        this.error = error.response?.data?.message || error.message || '获取用户信息失败'
+        const result = await wrapApiCall(
+          () => authApi.getMe(),
+          this,
+          '获取用户信息失败'
+        );
         
+        if (result) {
+          this.user = result;
+          this.isAuthenticated = true;
+          return true;
+        }
+        
+        return false;
+      } catch (error) {
         // 如果出现401错误，表示token已过期，执行注销
         if (error.response?.status === 401) {
-          this.clearAuth()
+          this.clearAuth();
         }
-        return false
-      } finally {
-        this.loading = false
+        return false;
       }
     },
     
     // 刷新token
     async refreshAccessToken() {
-      if (!this.refreshToken) return false
+      if (!this.refreshToken) return false;
       
       try {
-        const response = await authApi.refreshToken(this.refreshToken)
-        if (response && (response.success || response.data)) {
-          // 兼容不同响应格式
-          this.token = response.data?.accessToken || response.accessToken || null
-          return !!this.token
+        const result = await wrapApiCall(
+          () => authApi.refreshToken(this.refreshToken),
+          null, // 不需要设置loading和error状态
+          '刷新token失败'
+        );
+        
+        if (result) {
+          // 更新token
+          this.token = result.accessToken || null;
+          return !!this.token;
         }
-        return false
+        
+        return false;
       } catch (error) {
-        console.error('刷新token失败:', error)
-        // 如果刷新失败，执行注销
-        this.clearAuth()
-        return false
+        // 如果刷新失败，清除认证状态
+        this.clearAuth();
+        return false;
       }
     }
   },
