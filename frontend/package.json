@@ -25,7 +25,10 @@
     "clean:hidden": "find ./__tests__ -name '._*' -type f -delete",
     "pretest:unit": "npm run clean:hidden",
     "pretest:coverage": "npm run clean:hidden",
-    "clean:macos": "node scripts/clean-all-hidden.js"
+    "clean:macos": "node scripts/clean-all-hidden.js",
+    "perf:baseline": "lighthouse http://localhost:8080 --view --output-path=./performance-reports/baseline.html",
+    "perf:ci": "lhci autorun --config=lighthouse-ci-config.js",
+    "perf:audit": "npm run build && npx serve -s dist & lighthouse http://localhost:5000 --view"
   },
   "keywords": [],
   "author": "",
@@ -56,8 +59,12 @@
     "eslint-plugin-vue": "^10.0.0",
     "glob": "^11.0.1",
     "jsdom": "^23.0.0",
+    "lighthouse": "^12.5.1",
+    "lighthouse-ci": "^1.13.1",
     "msw": "^1.3.0",
+    "puppeteer": "^24.4.0",
     "vitest": "^0.34.0",
-    "vue-eslint-parser": "^10.1.1"
+    "vue-eslint-parser": "^10.1.1",
+    "web-vitals": "^4.2.4"
   }
 }

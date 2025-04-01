@@ -54,6 +54,12 @@
                     <i class="bi bi-person me-2"></i>个人中心
                   </router-link>
                 </li>
+                <!-- 管理员菜单项 -->
+                <li v-if="authStore.isAdmin">
+                  <router-link class="dropdown-item" to="/performance-dashboard">
+                    <i class="bi bi-speedometer2 me-2"></i>性能监控
+                  </router-link>
+                </li>
                 <li><hr class="dropdown-divider"></li>
                 <li>
                   <a class="dropdown-item" href="#" @click.prevent="handleLogout">
