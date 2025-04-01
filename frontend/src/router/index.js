@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { startMeasure, endMeasure, monitorResourcePerformance } from '@/utils/performance'
 
 // 页面组件
 const Home = () => import('@/views/Home.vue')
@@ -14,6 +15,7 @@ const ResourceUpload = () => import('@/views/ResourceUpload.vue')
 const Contact = () => import('@/views/Contact.vue')
 const AboutUs = () => import('@/views/AboutUs.vue')
 const BusinessCooperation = () => import('@/views/BusinessCooperation.vue')
+const PerformanceDashboard = () => import('@/views/PerformanceDashboard.vue')
 
 const routes = [
   {
@@ -105,6 +107,16 @@ const routes = [
     name: 'BusinessCooperation',
     component: BusinessCooperation,
     meta: { title: '商务合作 - Et 资源小站' }
+  },
+  {
+    path: '/performance-dashboard',
+    name: 'PerformanceDashboard',
+    component: PerformanceDashboard,
+    meta: { 
+      title: '性能监控仪表板 - Et 资源小站',
+      requiresAuth: true,
+      adminOnly: true // 仅管理员可访问
+    }
   }
 ]
 
@@ -115,6 +127,9 @@ const router = createRouter({
 
 // 全局前置守卫 - 处理身份验证和页面标题
 router.beforeEach((to, from, next) => {
+  // 开始路由导航性能测量
+  startMeasure(`route-navigation-${to.name}`);
+  
   // 设置页面标题
   document.title = to.meta.title || 'Et 资源小站'
   
@@ -127,6 +142,10 @@ router.beforeEach((to, from, next) => {
       query: { redirect: to.fullPath } // 保存原目标路径，登录后可跳转回去
     })
   } 
+  // 如果页面是仅限管理员且用户不是管理员，重定向到首页
+  else if (to.meta.adminOnly && (!authStore.isLoggedIn || !authStore.isAdmin)) {
+    next({ path: '/' })
+  }
   // 如果页面是仅限游客（如登录、注册页面）且用户已登录，重定向到首页
   else if (to.meta.guest && authStore.isLoggedIn) {
     next({ path: '/' })
@@ -135,6 +154,18 @@ router.beforeEach((to, from, next) => {
   else {
     next()
   }
+})
+
+// 全局后置钩子 - 完成导航后记录性能数据
+router.afterEach((to) => {
+  // 结束路由导航性能测量
+  endMeasure(`route-navigation-${to.name}`);
+  
+  // 延迟一点时间后监控资源加载性能
+  // 等待页面资源完全加载
+  setTimeout(() => {
+    monitorResourcePerformance();
+  }, 1000);
 })
 
 export default router 
