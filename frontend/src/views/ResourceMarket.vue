@@ -87,7 +87,7 @@
 <script>
 // 注释掉未使用的导入或改为按需导入
 // import { resourceApi } from '@/services/api'
-import { useResourceStore } from '@/stores/resources'
+// import { useResourceStore } from '@/stores/resources'
 
 export default {
   name: 'ResourceMarketPage',
