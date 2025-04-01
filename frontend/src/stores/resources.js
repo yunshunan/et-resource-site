@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import axios from '@/services/api'
-import { wrapApiCall } from '@/utils/errorHandler'
+// eslint-disable-next-line no-unused-vars
+import { wrapApiCall, extractErrorMessage } from '@/utils/errorHandler'
 
 export const useResourceStore = defineStore('resources', {
   state: () => ({

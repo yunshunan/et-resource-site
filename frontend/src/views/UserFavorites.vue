@@ -9,11 +9,10 @@
       </div>
       
       <!-- 加载状态 -->
-      <div v-if="resourceStore.loading" class="text-center py-5">
-        <div class="spinner-border text-primary" role="status">
-          <span class="visually-hidden">加载中...</span>
+      <div v-if="resourceStore.loading" class="row">
+        <div class="col-md-4 mb-4" v-for="n in 6" :key="n">
+          <ResourceCardSkeleton />
         </div>
-        <p class="mt-2">加载中...</p>
       </div>
       
       <!-- 错误提示 -->
@@ -31,16 +30,24 @@
         </router-link>
       </div>
       
-      <!-- 收藏列表 -->
-      <div v-else class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
-        <div v-for="resource in resourceStore.favorites" :key="resource._id" class="col">
-          <div class="card h-100 shadow-sm">
-            <img 
+      <!-- 收藏列表 - 使用虚拟列表优化 -->
+      <div v-else>
+        <VirtualList
+          :items="resourceStore.favorites"
+          :item-height="320"
+          :container-height="800"
+          :buffer="2"
+          v-slot="{ item: resource }"
+        >
+          <div class="card h-100 shadow-sm mb-4">
+            <LazyImage 
               :src="resource.imageUrl" 
-              class="card-img-top" 
-              alt="资源封面"
-              style="height: 180px; object-fit: cover;"
-            >
+              :alt="resource.title || '资源封面'"
+              loading-text="资源加载中..." 
+              fallback-src="https://via.placeholder.com/400x300/cccccc/666666?text=加载失败"
+              img-style="height: 180px; object-fit: cover;"
+              class="card-img-top"
+            />
             
             <div class="card-body">
               <div class="d-flex justify-content-between align-items-start mb-2">
@@ -88,56 +95,61 @@
               </div>
             </div>
           </div>
-        </div>
+        </VirtualList>
       </div>
       
-      <!-- 分页 -->
-      <div v-if="resourceStore.pagination.totalPages > 1" class="d-flex justify-content-center mt-5">
-        <nav aria-label="资源分页">
-          <ul class="pagination">
-            <li 
-              class="page-item" 
-              :class="{ disabled: resourceStore.pagination.currentPage === 1 }"
-            >
-              <a 
-                class="page-link" 
-                href="#" 
-                @click.prevent="changePage(resourceStore.pagination.currentPage - 1)"
+      <!-- 分页 - 使用MemoComponent避免不必要的重新渲染 -->
+      <MemoComponent 
+        v-if="resourceStore.pagination.totalPages > 1" 
+        :dependencies="[resourceStore.pagination.currentPage, resourceStore.pagination.totalPages]"
+      >
+        <div class="d-flex justify-content-center mt-5">
+          <nav aria-label="资源分页">
+            <ul class="pagination">
+              <li 
+                class="page-item" 
+                :class="{ disabled: resourceStore.pagination.currentPage === 1 }"
               >
-                上一页
-              </a>
-            </li>
-            
-            <li 
-              v-for="page in pageNumbers" 
-              :key="page" 
-              class="page-item"
-              :class="{ active: page === resourceStore.pagination.currentPage }"
-            >
-              <a 
-                class="page-link" 
-                href="#" 
-                @click.prevent="changePage(page)"
+                <a 
+                  class="page-link" 
+                  href="#" 
+                  @click.prevent="changePage(resourceStore.pagination.currentPage - 1)"
+                >
+                  上一页
+                </a>
+              </li>
+              
+              <li 
+                v-for="page in pageNumbers" 
+                :key="page" 
+                class="page-item"
+                :class="{ active: page === resourceStore.pagination.currentPage }"
               >
-                {{ page }}
-              </a>
-            </li>
-            
-            <li 
-              class="page-item" 
-              :class="{ disabled: resourceStore.pagination.currentPage === resourceStore.pagination.totalPages }"
-            >
-              <a 
-                class="page-link" 
-                href="#" 
-                @click.prevent="changePage(resourceStore.pagination.currentPage + 1)"
+                <a 
+                  class="page-link" 
+                  href="#" 
+                  @click.prevent="changePage(page)"
+                >
+                  {{ page }}
+                </a>
+              </li>
+              
+              <li 
+                class="page-item" 
+                :class="{ disabled: resourceStore.pagination.currentPage === resourceStore.pagination.totalPages }"
               >
-                下一页
-              </a>
-            </li>
-          </ul>
-        </nav>
-      </div>
+                <a 
+                  class="page-link" 
+                  href="#" 
+                  @click.prevent="changePage(resourceStore.pagination.currentPage + 1)"
+                >
+                  下一页
+                </a>
+              </li>
+            </ul>
+          </nav>
+        </div>
+      </MemoComponent>
     </div>
   </div>
 </template>
@@ -145,9 +157,19 @@
 <script>
 import { computed, onMounted } from 'vue'
 import { useResourceStore } from '@/stores/resources'
+import VirtualList from '@/components/common/VirtualList.vue'
+import MemoComponent from '@/components/common/MemoComponent.vue'
+import LazyImage from '@/components/common/LazyImage.vue'
+import ResourceCardSkeleton from '@/components/resource/ResourceCardSkeleton.vue'
 
 export default {
   name: 'UserFavoritesView',
+  components: {
+    VirtualList,
+    MemoComponent,
+    LazyImage,
+    ResourceCardSkeleton
+  },
   setup() {
     const resourceStore = useResourceStore()
     const defaultAvatar = 'https://mdbcdn.b-cdn.net/img/Photos/new-templates/bootstrap-chat/ava3.webp'
@@ -171,7 +193,7 @@ export default {
       resourceStore.fetchFavorites(page);
     }
     
-    // 计算页码数组
+    // 计算页码数组 - 使用计算属性缓存结果
     const pageNumbers = computed(() => {
       const totalPages = resourceStore.pagination.totalPages;
       const currentPage = resourceStore.pagination.currentPage;
@@ -219,5 +241,11 @@ export default {
 
 .card:hover {
   transform: translateY(-5px);
+}
+
+/* 虚拟列表样式优化 */
+.virtual-list-item {
+  padding: 0 15px;
+  width: 100%;
 }
 </style> 
