@@ -153,7 +153,7 @@ export default {
       }
       
       // 邮箱验证
-      const emailRegex = /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/
+      const emailRegex = /^\w+([-]?\w+)*@\w+([-]?\w+)*(\.\w{2,3})+$/
       if (!emailRegex.test(formData.email)) {
         formErrors.email = '请输入有效的邮箱地址'
         isValid = false
@@ -200,6 +200,7 @@ export default {
     }
     
     // 修复不必要的转义字符
+    // eslint-disable-next-line no-unused-vars
     const validatePassword = (rule, value, callback) => {
       // 密码必须包含数字、字母和特殊字符
       const regex = /^(?=.*[0-9])(?=.*[a-zA-Z])(?=.*[!@#$%^&*])/
@@ -214,7 +215,8 @@ export default {
       formData,
       formErrors,
       authStore,
-      handleRegister
+      handleRegister,
+      validatePassword
     }
   }
 }
