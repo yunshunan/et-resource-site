@@ -1,1 +1,1 @@
-{"status":"healthy","timestamp":"${new Date().toISOString()}"} 
+{"status":"healthy","timestamp":"2025-04-01T12:00:00.000Z"} 
