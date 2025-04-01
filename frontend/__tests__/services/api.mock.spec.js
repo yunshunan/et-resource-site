@@ -7,7 +7,8 @@ import { setActivePinia, createPinia } from 'pinia';
 import { createPersistedState } from 'pinia-plugin-persistedstate';
 import { useAuthStore } from '../../src/stores/auth';
 import api, { authApi, resourceApi } from '../../src/services/api';
-import { server, apiServiceMock } from '../msw/server';
+import { server } from '../msw/server';
+import { apiServiceMock } from '../msw/mockHelpers';
 import { rest } from 'msw';
 
 // 测试API服务与MSW集成

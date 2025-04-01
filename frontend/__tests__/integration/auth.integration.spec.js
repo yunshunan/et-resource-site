@@ -5,13 +5,14 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useAuthStore } from '../../src/stores/auth'
-import { server, authMock } from '../msw/server'
+import { server } from '../msw/server'
+import { apiServiceMock } from '../msw/mockHelpers'
 
 // 在所有测试开始前启动MSW服务器
 beforeAll(() => server.listen())
 
 // 每个测试之后重置处理程序
-afterEach(() => server.restoreHandlers())
+afterEach(() => server.resetHandlers())
 
 // 所有测试结束后关闭服务器
 afterAll(() => server.close())
@@ -59,7 +60,7 @@ describe('Auth Store 集成测试', () => {
 
   it('登录网络错误处理', async () => {
     // 设置登录接口返回网络错误
-    authMock.mockNetworkError('/auth/login')
+    apiServiceMock.mockNetworkError('POST', '/auth/login')
     
     // 执行登录操作
     const result = await authStore.login('test@example.com', 'password123')

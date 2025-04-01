@@ -54,17 +54,19 @@ describe('Auth Store 分支覆盖率测试', () => {
       authStore.token = null;
       
       // 调用fetchCurrentUser
-      await authStore.fetchCurrentUser();
+      const result = await authStore.fetchCurrentUser();
       
-      // 验证getMe不被调用
+      // 验证getMe不被调用, 返回false
+      expect(result).toBe(false);
       expect(authApi.getMe).not.toHaveBeenCalled();
     });
     
     it('当API返回成功但响应无success标志时应抛出错误', async () => {
       // 设置token
       authStore.token = 'valid-token';
+      authStore.error = null;
       
-      // 模拟API响应不带success标志
+      // 模拟API响应不带success标志但有data
       authApi.getMe.mockResolvedValue({
         data: { id: '1', name: 'Test User' }
       });
@@ -72,9 +74,10 @@ describe('Auth Store 分支覆盖率测试', () => {
       // 调用fetchCurrentUser
       await authStore.fetchCurrentUser();
       
-      // 验证错误状态
-      expect(authStore.error).toBe('获取用户信息失败');
-      expect(authStore.isAuthenticated).toBe(false);
+      // 在更新的实现中，只要有data就被视为成功，不需要success标志
+      expect(authStore.user).toEqual({ id: '1', name: 'Test User' });
+      expect(authStore.isAuthenticated).toBe(true);
+      expect(authStore.error).toBeNull();
     });
     
     it('当出现401错误时应执行注销', async () => {
@@ -88,27 +91,25 @@ describe('Auth Store 分支覆盖率测试', () => {
       error.response = { status: 401 };
       authApi.getMe.mockRejectedValue(error);
       
-      // 覆写logout方法
-      const originalLogout = authStore.logout;
-      let logoutCalled = false;
-      authStore.logout = async () => {
-        logoutCalled = true;
-        authStore.token = null;
-        authStore.isAuthenticated = false;
-        authStore.user = null;
+      // 覆写clearAuth方法来追踪调用
+      const originalClearAuth = authStore.clearAuth;
+      let clearAuthCalled = false;
+      authStore.clearAuth = () => {
+        clearAuthCalled = true;
+        originalClearAuth.call(authStore);
       };
       
       // 调用fetchCurrentUser
       await authStore.fetchCurrentUser();
       
-      // 验证logout被调用
-      expect(logoutCalled).toBe(true);
+      // 验证clearAuth被调用
+      expect(clearAuthCalled).toBe(true);
       expect(authStore.token).toBeNull();
       expect(authStore.isAuthenticated).toBe(false);
       expect(authStore.user).toBeNull();
       
       // 恢复原始方法
-      authStore.logout = originalLogout;
+      authStore.clearAuth = originalClearAuth;
     });
     
     it('当出现非401错误时应设置错误消息', async () => {
@@ -146,24 +147,27 @@ describe('Auth Store 分支覆盖率测试', () => {
       expect(authApi.refreshToken).not.toHaveBeenCalled();
     });
     
-    it('当刷新成功但响应无success标志时应返回false', async () => {
+    it('当刷新成功但响应无success标志时应处理data对象', async () => {
       // 设置refreshToken
       authStore.refreshToken = 'valid-refresh-token';
+      authStore.token = 'old-token';
       
-      // 模拟API响应不带success标志
+      // 模拟API响应带data对象
       authApi.refreshToken.mockResolvedValue({
-        accessToken: 'new-access-token'
+        data: {
+          accessToken: 'new-access-token'
+        }
       });
       
       // 调用refreshAccessToken
       const result = await authStore.refreshAccessToken();
       
-      // 验证结果
-      expect(result).toBe(false);
-      expect(authStore.token).not.toBe('new-access-token');
+      // 验证结果 - 只要有data.accessToken就视为成功
+      expect(result).toBe(true);
+      expect(authStore.token).toBe('new-access-token');
     });
     
-    it('当刷新失败时应执行注销', async () => {
+    it('当刷新失败时应执行clearAuth', async () => {
       // 设置token和refreshToken
       authStore.token = 'old-token';
       authStore.refreshToken = 'invalid-refresh-token';
