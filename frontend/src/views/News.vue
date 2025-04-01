@@ -98,7 +98,8 @@
 </template>
 
 <script>
-import { newsApi } from '@/services/api'
+// 注释掉未使用的导入或改为按需导入
+// import { newsApi } from '@/services/api'
 
 export default {
   name: 'NewsPage',

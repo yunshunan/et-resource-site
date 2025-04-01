@@ -112,12 +112,12 @@
 </template>
 
 <script>
-import { reactive, ref } from 'vue'
+import { reactive, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
 export default {
-  name: 'RegisterView',
+  name: 'RegisterPage',
   setup() {
     const router = useRouter()
     const authStore = useAuthStore()
@@ -196,6 +196,17 @@ export default {
       if (success) {
         // 注册成功，跳转到首页
         router.push('/')
+      }
+    }
+    
+    // 修复不必要的转义字符
+    const validatePassword = (rule, value, callback) => {
+      // 密码必须包含数字、字母和特殊字符
+      const regex = /^(?=.*[0-9])(?=.*[a-zA-Z])(?=.*[!@#$%^&*])/
+      if (!regex.test(value)) {
+        callback(new Error('密码必须包含数字、字母和特殊字符'))
+      } else {
+        callback()
       }
     }
     

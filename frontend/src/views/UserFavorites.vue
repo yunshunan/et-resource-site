@@ -143,7 +143,7 @@
 </template>
 
 <script>
-import { ref, computed, onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useResourceStore } from '@/stores/resources'
 
 export default {

@@ -68,4 +68,22 @@ backend/.env
 # 构建文件
 frontend/dist/
 frontend/node_modules/
-backend/node_modules/ 
+backend/node_modules/
+
+# macOS隐藏文件
+._*
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# ESLint临时文件
+**/eslint-test*.js
+**/eslint-test*.vue 

@@ -3,7 +3,7 @@
     <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
       <div class="container">
         <router-link class="navbar-brand" to="/">
-          <img src="@/assets/logo.png" alt="Et 资源小站" height="40" v-if="false">
+          <img src="@/assets/logo.svg" alt="Et 资源小站" height="40" v-if="false">
           <span class="fw-bold text-primary">Et 资源小站</span>
         </router-link>
         
