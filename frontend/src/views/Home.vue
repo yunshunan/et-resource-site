@@ -79,7 +79,8 @@
 </template>
 
 <script>
-import { homeApi } from '@/services/api'
+// 注释掉未使用的导入或改为按需导入
+// import { homeApi } from '@/services/api'
 
 export default {
   name: 'HomePage',

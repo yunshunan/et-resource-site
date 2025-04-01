@@ -1,0 +1,5 @@
+<svg width="200" height="60" xmlns="http://www.w3.org/2000/svg">
+  <rect width="100%" height="100%" fill="#ffffff"/>
+  <text x="10" y="35" font-family="Arial" font-size="24" font-weight="bold" fill="#3498db">ET资源小站</text>
+  <circle cx="170" cy="30" r="20" fill="#3498db"/>
+</svg>

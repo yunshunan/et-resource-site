@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { useAuthStore } from '@/stores/auth'
 
 // 创建axios实例
 const api = axios.create({
@@ -6,13 +7,24 @@ const api = axios.create({
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json'
+  },
+  // 允许特定状态码不抛出错误，以便在响应拦截器中统一处理
+  validateStatus: function (status) {
+    return (status >= 200 && status < 300) || status === 404; // 允许404错误通过响应拦截器处理
   }
 })
 
 // 请求拦截器
 api.interceptors.request.use(
   config => {
-    // 可以在此处添加请求头等配置
+    // 从状态管理中获取认证信息
+    const authStore = useAuthStore()
+    
+    // 如果有token，添加到请求头
+    if (authStore.token) {
+      config.headers['Authorization'] = `Bearer ${authStore.token}`
+    }
+    
     return config
   },
   error => {
@@ -26,7 +38,22 @@ api.interceptors.response.use(
     // 统一处理响应数据格式
     return response.data
   },
-  error => {
+  async error => {
+    // 处理401错误（未授权），尝试刷新Token
+    if (error.response && error.response.status === 401) {
+      const authStore = useAuthStore()
+      
+      // 尝试刷新Token
+      const tokenRefreshed = await authStore.refreshAccessToken()
+      
+      // 如果Token刷新成功，重试原请求
+      if (tokenRefreshed && error.config) {
+        // 更新请求配置中的Authorization头
+        error.config.headers['Authorization'] = `Bearer ${authStore.token}`
+        return api(error.config)
+      }
+    }
+    
     console.error('API请求错误:', error)
     return Promise.reject(error)
   }
@@ -49,6 +76,15 @@ export const resourceApi = {
 export const newsApi = {
   getNewsList: (page = 1) => api.get('/news', { params: { page } }),
   getNewsById: (id) => api.get(`/news/${id}`)
+}
+
+// 认证相关API
+export const authApi = {
+  login: (credentials) => api.post('/auth/login', credentials),
+  register: (userData) => api.post('/auth/register', userData),
+  getMe: () => api.get('/auth/me'),
+  logout: () => api.post('/auth/logout'),
+  refreshToken: (refreshToken) => api.post('/auth/refresh-token', { refreshToken })
 }
 
 export default api 
