@@ -1,0 +1,193 @@
+name: Deploy
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '16'
+          
+      - name: Install dependencies
+        run: |
+          cd frontend
+          npm ci
+          
+      - name: Run type checking
+        run: |
+          cd frontend
+          npm run type-check
+          
+      - name: Run linting
+        run: |
+          cd frontend
+          npm run lint
+          
+      - name: Run unit tests
+        run: |
+          cd frontend
+          npm run test
+          
+      - name: Run performance tests
+        run: |
+          cd frontend
+          npm run test:performance
+          
+      - name: Run E2E tests
+        run: |
+          cd frontend
+          npm run test:e2e
+          
+      - name: Upload test coverage
+        uses: actions/upload-artifact@v2
+        with:
+          name: coverage
+          path: frontend/coverage
+          
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '16'
+          
+      - name: Install dependencies
+        run: |
+          cd frontend
+          npm ci
+          
+      - name: Build
+        run: |
+          cd frontend
+          npm run build
+          
+      - name: Run build validation
+        run: |
+          cd frontend
+          npm run preview & sleep 5
+          curl -s http://localhost:4173 | grep -q "Et 资源小站"
+          
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: dist
+          path: frontend/dist
+          
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+    
+    steps:
+      - uses: actions/checkout@v2
+      
+      - name: Download build artifacts
+        uses: actions/download-artifact@v2
+        with:
+          name: dist
+          path: frontend/dist
+          
+      - name: Set deployment environment
+        run: |
+          if [ ${{ github.ref }} = 'refs/heads/main' ]; then
+            echo "DEPLOY_ENV=production" >> $GITHUB_ENV
+          else
+            echo "DEPLOY_ENV=development" >> $GITHUB_ENV
+          fi
+          
+      - name: Backup current version
+        env:
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+        run: |
+          # 备份当前版本
+          echo "Backing up current version..."
+          timestamp=$(date +%Y%m%d_%H%M%S)
+          ssh -i $DEPLOY_KEY user@server "cp -r /var/www/et-resource-site-${{ env.DEPLOY_ENV }} /var/www/et-resource-site-${{ env.DEPLOY_ENV }}_backup_$timestamp"
+          
+      - name: Deploy to environment
+        env:
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+        run: |
+          # 部署新版本
+          echo "Deploying to ${{ env.DEPLOY_ENV }}..."
+          rsync -avz -e "ssh -i $DEPLOY_KEY" frontend/dist/ user@server:/var/www/et-resource-site-${{ env.DEPLOY_ENV }}/
+          
+      - name: Health check
+        run: |
+          echo "Starting health check..."
+          max_attempts=5
+          attempt=1
+          while [ $attempt -le $max_attempts ]; do
+            echo "Health check attempt $attempt of $max_attempts"
+            response=$(curl -s https://${{ env.DEPLOY_ENV }}.et-resource-site.com/health)
+            if echo "$response" | grep -q "healthy"; then
+              echo "Health check passed"
+              exit 0
+            fi
+            echo "Health check failed, waiting 30 seconds before retry..."
+            sleep 30
+            attempt=$((attempt + 1))
+          done
+          echo "Health check failed after $max_attempts attempts"
+          exit 1
+          
+      - name: Rollback on failure
+        if: failure()
+        env:
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+        run: |
+          echo "Deployment failed, initiating rollback..."
+          # 获取最新的备份
+          latest_backup=$(ssh -i $DEPLOY_KEY user@server "ls -t /var/www/et-resource-site-${{ env.DEPLOY_ENV }}_backup_* | head -n1")
+          if [ -n "$latest_backup" ]; then
+            ssh -i $DEPLOY_KEY user@server "rm -rf /var/www/et-resource-site-${{ env.DEPLOY_ENV }} && cp -r $latest_backup /var/www/et-resource-site-${{ env.DEPLOY_ENV }}"
+            echo "Rollback completed successfully"
+          else
+            echo "No backup found for rollback"
+            exit 1
+          fi
+          
+      - name: Notify deployment
+        if: success()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.repos.createDispatchEvent({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              event_type: 'deployment_success',
+              client_payload: {
+                environment: process.env.DEPLOY_ENV,
+                timestamp: new Date().toISOString(),
+                version: process.env.GITHUB_SHA
+              }
+            })
+            
+      - name: Notify on failure
+        if: failure()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.repos.createDispatchEvent({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              event_type: 'deployment_failure',
+              client_payload: {
+                environment: process.env.DEPLOY_ENV,
+                timestamp: new Date().toISOString(),
+                error: context.job.status
+              }
+            }) 
