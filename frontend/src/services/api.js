@@ -1,5 +1,7 @@
 import axios from 'axios'
 import { useAuthStore } from '@/stores/auth'
+import * as networkSimulator from '@/utils/networkSimulator'
+import * as performanceMonitor from '@/utils/performanceMonitor'
 
 // 创建axios实例
 const api = axios.create({
@@ -16,13 +18,22 @@ const api = axios.create({
 
 // 请求拦截器
 api.interceptors.request.use(
-  config => {
+  async config => {
+    // 记录请求开始时间
+    config.requestStartTime = performance.now()
+    
     // 从状态管理中获取认证信息
     const authStore = useAuthStore()
     
     // 如果有token，添加到请求头
     if (authStore.token) {
       config.headers['Authorization'] = `Bearer ${authStore.token}`
+    }
+    
+    // 应用网络模拟逻辑
+    if (process.env.NODE_ENV === 'development') {
+      const simulatedConfig = await networkSimulator.simulateApiCall(config)
+      return simulatedConfig
     }
     
     return config
@@ -35,10 +46,34 @@ api.interceptors.request.use(
 // 响应拦截器
 api.interceptors.response.use(
   response => {
+    // 计算请求持续时间
+    const duration = performance.now() - response.config.requestStartTime
+    
+    // 记录API调用性能
+    performanceMonitor.recordApiCall(
+      response.config.url,
+      response.config.method,
+      duration,
+      response.status
+    )
+    
     // 统一处理响应数据格式
     return response.data
   },
   async error => {
+    // 计算请求持续时间
+    const duration = performance.now() - error.config?.requestStartTime
+    
+    // 记录API调用性能（失败）
+    if (error.config) {
+      performanceMonitor.recordApiCall(
+        error.config.url,
+        error.config.method,
+        duration,
+        error.response?.status || 0
+      )
+    }
+    
     // 处理401错误（未授权），尝试刷新Token
     if (error.response && error.response.status === 401) {
       const authStore = useAuthStore()
