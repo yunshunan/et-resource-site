@@ -111,28 +111,48 @@ jobs:
       - name: Backup current version
         env:
           DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
         run: |
+          # 设置SSH密钥权限
+          echo "$DEPLOY_KEY" > deploy_key
+          chmod 600 deploy_key
+          
           # 备份当前版本
           echo "Backing up current version..."
           timestamp=$(date +%Y%m%d_%H%M%S)
-          ssh -i $DEPLOY_KEY user@server "cp -r /var/www/et-resource-site-${{ env.DEPLOY_ENV }} /var/www/et-resource-site-${{ env.DEPLOY_ENV }}_backup_$timestamp"
+          ssh -i deploy_key -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_HOST "mkdir -p /var/www/et-resource-site-${{ env.DEPLOY_ENV }}_backup_$timestamp && cp -r /var/www/et-resource-site-${{ env.DEPLOY_ENV }}/* /var/www/et-resource-site-${{ env.DEPLOY_ENV }}_backup_$timestamp/ || true"
           
       - name: Deploy to environment
         env:
           DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
         run: |
           # 部署新版本
           echo "Deploying to ${{ env.DEPLOY_ENV }}..."
-          rsync -avz -e "ssh -i $DEPLOY_KEY" frontend/dist/ user@server:/var/www/et-resource-site-${{ env.DEPLOY_ENV }}/
+          # 确保密钥文件存在
+          if [ ! -f deploy_key ]; then
+            echo "$DEPLOY_KEY" > deploy_key
+            chmod 600 deploy_key
+          fi
+          
+          # 确保目标目录存在
+          ssh -i deploy_key -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_HOST "mkdir -p /var/www/et-resource-site-${{ env.DEPLOY_ENV }}"
+          
+          # 执行部署
+          rsync -avz -e "ssh -i deploy_key -o StrictHostKeyChecking=no" frontend/dist/ $SERVER_USER@$SERVER_HOST:/var/www/et-resource-site-${{ env.DEPLOY_ENV }}/
           
       - name: Health check
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
         run: |
           echo "Starting health check..."
           max_attempts=5
           attempt=1
           while [ $attempt -le $max_attempts ]; do
             echo "Health check attempt $attempt of $max_attempts"
-            response=$(curl -s https://${{ env.DEPLOY_ENV }}.et-resource-site.com/health)
+            response=$(curl -s https://${{ env.DEPLOY_ENV }}.et-resource-site.com/health || echo "failed")
             if echo "$response" | grep -q "healthy"; then
               echo "Health check passed"
               exit 0
@@ -148,12 +168,20 @@ jobs:
         if: failure()
         env:
           DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
         run: |
           echo "Deployment failed, initiating rollback..."
+          # 确保密钥文件存在
+          if [ ! -f deploy_key ]; then
+            echo "$DEPLOY_KEY" > deploy_key
+            chmod 600 deploy_key
+          fi
+          
           # 获取最新的备份
-          latest_backup=$(ssh -i $DEPLOY_KEY user@server "ls -t /var/www/et-resource-site-${{ env.DEPLOY_ENV }}_backup_* | head -n1")
+          latest_backup=$(ssh -i deploy_key -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_HOST "ls -td /var/www/et-resource-site-${{ env.DEPLOY_ENV }}_backup_* | head -n1 || echo ''")
           if [ -n "$latest_backup" ]; then
-            ssh -i $DEPLOY_KEY user@server "rm -rf /var/www/et-resource-site-${{ env.DEPLOY_ENV }} && cp -r $latest_backup /var/www/et-resource-site-${{ env.DEPLOY_ENV }}"
+            ssh -i deploy_key -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_HOST "rm -rf /var/www/et-resource-site-${{ env.DEPLOY_ENV }} && mkdir -p /var/www/et-resource-site-${{ env.DEPLOY_ENV }} && cp -r $latest_backup/* /var/www/et-resource-site-${{ env.DEPLOY_ENV }}/"
             echo "Rollback completed successfully"
           else
             echo "No backup found for rollback"
