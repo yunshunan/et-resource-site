@@ -1,3 +1,5 @@
+// 导入vitest的API
+import { vi, afterAll, beforeAll, afterEach } from 'vitest';
 // 导入MSW服务器
 import { server } from './__tests__/msw/server';
 // 导入日志过滤器
