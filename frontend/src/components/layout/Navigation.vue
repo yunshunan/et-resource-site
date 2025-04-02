@@ -178,12 +178,10 @@ export default {
 .search-input {
   border-top-right-radius: 0;
   border-bottom-right-radius: 0;
-  width: 180px;
-  transition: width 0.3s;
+  width: 200px;
 }
 
 .search-input:focus {
-  width: 220px;
   box-shadow: none;
   border-color: var(--bs-primary);
 }

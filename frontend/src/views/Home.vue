@@ -4,10 +4,10 @@
     <section class="hero bg-primary text-white py-5">
       <div class="container">
         <div class="row align-items-center">
-          <div class="col-lg-6">
+          <div class="col-lg-8 mx-auto text-center">
             <h1 class="display-4 fw-bold mb-4">欢迎访问 Et 资源小站</h1>
             <p class="lead mb-4">这是一个用于分享和获取各类资源的专业平台，为您提供高质量的数字资源和服务</p>
-            <div class="d-flex flex-wrap gap-2">
+            <div class="d-flex flex-wrap gap-2 justify-content-center">
               <router-link to="/resource-market" class="btn btn-light btn-lg">
                 浏览资源
               </router-link>
@@ -15,9 +15,6 @@
                 立即注册
               </router-link>
             </div>
-          </div>
-          <div class="col-lg-6 d-none d-lg-block">
-            <img src="@/assets/logo.svg" alt="Et 资源小站" class="img-fluid" style="max-height: 300px;" />
           </div>
         </div>
       </div>
@@ -111,44 +108,42 @@
           <router-link to="/news" class="btn btn-primary">更多资讯</router-link>
         </div>
         
-        <div class="row">
-          <!-- 主要新闻 -->
-          <div class="col-lg-6 mb-4">
-            <div class="card featured-news h-100">
+        <div class="row g-3">
+          <!-- 主要新闻 - 更改为占据左侧整列 -->
+          <div class="col-lg-7 mb-3">
+            <div class="card featured-news">
               <div class="row g-0 h-100">
-                <div class="col-md-6 h-100">
+                <div class="col-md-5 d-flex align-items-center">
                   <LazyImage 
                     src="https://picsum.photos/seed/featured/600/400" 
                     alt="特色新闻图片"
                     loading-text="加载中..." 
-                    img-style="width: 100%; height: 100%; object-fit: cover;"
-                    class="featured-img"
+                    img-style="width: 100%; height: auto; object-fit: cover; object-position: center;"
+                    class="featured-img w-100"
                   />
                 </div>
-                <div class="col-md-6">
-                  <div class="card-body d-flex flex-column h-100">
-                    <span class="badge bg-danger mb-2">置顶</span>
-                    <h4 class="card-title">行业最新动态：资源共享平台的未来发展趋势</h4>
-                    <p class="card-text flex-grow-1">随着数字化转型的深入，资源共享平台正成为各行业发展的重要基础设施，本文深入分析了未来发展趋势...</p>
-                    <div class="mt-auto">
-                      <div class="d-flex justify-content-between align-items-center">
-                        <small class="text-muted">2023-06-15</small>
-                        <router-link to="/news/1" class="btn btn-sm btn-outline-primary">阅读全文</router-link>
-                      </div>
+                <div class="col-md-7 d-flex align-items-center">
+                  <div class="card-body py-3">
+                    <div class="d-flex align-items-center mb-2">
+                      <span class="badge bg-danger me-2">置顶</span>
+                      <small class="text-muted">2023-06-15</small>
                     </div>
+                    <h4 class="card-title mb-3">行业最新动态：资源共享平台的未来发展趋势</h4>
+                    <p class="card-text">随着数字化转型的深入，资源共享平台正成为各行业发展的重要基础设施，本文深入分析了未来发展趋势和机遇挑战...</p>
+                    <router-link to="/news/1" class="btn btn-sm btn-outline-primary mt-2">阅读全文</router-link>
                   </div>
                 </div>
               </div>
             </div>
           </div>
           
-          <!-- 新闻列表 -->
-          <div class="col-lg-6">
-            <div class="row">
-              <div v-for="i in 3" :key="i" class="col-12 mb-4">
-                <div class="card news-card">
+          <!-- 新闻列表 - 更改为更紧凑的布局 -->
+          <div class="col-lg-5">
+            <div class="news-list">
+              <div v-for="i in 3" :key="i" class="news-item mb-3">
+                <div class="card news-card border-0 shadow-sm">
                   <div class="row g-0">
-                    <div class="col-4 position-relative" style="height: 120px;">
+                    <div class="col-4" style="max-height: 90px; overflow: hidden;">
                       <LazyImage 
                         :src="`https://picsum.photos/seed/news${i}/300/200`" 
                         :alt="`新闻图片 ${i}`"
@@ -158,12 +153,12 @@
                       />
                     </div>
                     <div class="col-8">
-                      <div class="card-body py-2">
-                        <h5 class="card-title news-title">{{ getNewsTitle(i) }}</h5>
-                        <p class="card-text news-excerpt">{{ getNewsExcerpt(i) }}</p>
+                      <div class="card-body p-2">
+                        <h5 class="card-title news-title fs-6 mb-1">{{ getNewsTitle(i) }}</h5>
+                        <p class="card-text news-excerpt small mb-1 text-muted">{{ getNewsExcerpt(i) }}</p>
                         <div class="d-flex justify-content-between align-items-center">
                           <small class="text-muted">2023-06-{{ 10 + i }}</small>
-                          <router-link :to="`/news/${i + 1}`" class="news-link">阅读全文</router-link>
+                          <router-link :to="`/news/${i + 1}`" class="news-link small">阅读全文</router-link>
                         </div>
                       </div>
                     </div>
@@ -298,60 +293,48 @@ export default defineComponent({
 }
 
 .featured-news {
-  overflow: hidden;
-  border-radius: 10px;
+  border: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  height: 100%;
+  display: flex;
 }
 
 .featured-img {
-  border-radius: 10px 0 0 10px;
+  border-radius: 0.375rem 0 0 0.375rem;
+  object-position: center;
 }
 
 .news-card {
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-  overflow: hidden;
-  border-radius: 8px;
-  height: 100%;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  border-radius: 0.375rem;
 }
 
 .news-card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
-}
-
-.news-img {
-  border-radius: 8px 0 0 8px;
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1) !important;
 }
 
 .news-title {
-  font-size: 1.1rem;
-  margin-bottom: 0.5rem;
+  font-weight: 600;
   line-height: 1.3;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 1;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
 .news-excerpt {
-  font-size: 0.9rem;
-  color: #6c757d;
-  margin-bottom: 0.5rem;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  line-height: 1.4;
 }
 
 .news-link {
-  font-size: 0.9rem;
   color: var(--primary-color);
   text-decoration: none;
+  font-weight: 500;
 }
 
 .news-link:hover {
