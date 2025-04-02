@@ -110,27 +110,29 @@
         
         <div class="row g-3">
           <!-- 主要新闻 - 更改为占据左侧整列 -->
-          <div class="col-lg-7 mb-3">
-            <div class="card featured-news">
+          <div class="col-lg-7">
+            <div class="card featured-news" style="height: 452px;">
               <div class="row g-0 h-100">
-                <div class="col-md-5 d-flex align-items-center">
+                <div class="col-md-5 p-0 position-relative" style="min-height: 380px; overflow: hidden;">
                   <LazyImage 
-                    src="https://picsum.photos/seed/featured/600/400" 
+                    src="https://picsum.photos/seed/featured/800/800" 
                     alt="特色新闻图片"
                     loading-text="加载中..." 
-                    img-style="width: 100%; height: auto; object-fit: cover; object-position: center;"
-                    class="featured-img w-100"
+                    img-style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; object-position: center; transform: scale(1.05);"
+                    class="h-100"
                   />
                 </div>
-                <div class="col-md-7 d-flex align-items-center">
-                  <div class="card-body py-3">
-                    <div class="d-flex align-items-center mb-2">
+                <div class="col-md-7 d-flex align-items-start py-4">
+                  <div class="card-body d-flex flex-column h-100">
+                    <div class="d-flex align-items-center mb-3">
                       <span class="badge bg-danger me-2">置顶</span>
                       <small class="text-muted">2023-06-15</small>
                     </div>
                     <h4 class="card-title mb-3">行业最新动态：资源共享平台的未来发展趋势</h4>
-                    <p class="card-text">随着数字化转型的深入，资源共享平台正成为各行业发展的重要基础设施，本文深入分析了未来发展趋势和机遇挑战...</p>
-                    <router-link to="/news/1" class="btn btn-sm btn-outline-primary mt-2">阅读全文</router-link>
+                    <p class="card-text mb-4">随着数字化转型的深入，资源共享平台正成为各行业发展的重要基础设施，本文深入分析了未来发展趋势和机遇挑战...</p>
+                    <div class="mt-auto pb-1">
+                      <router-link to="/news/1" class="btn btn-sm btn-outline-primary">阅读全文</router-link>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -139,10 +141,10 @@
           
           <!-- 新闻列表 - 更改为更紧凑的布局 -->
           <div class="col-lg-5">
-            <div class="news-list">
-              <div v-for="i in 3" :key="i" class="news-item mb-3">
-                <div class="card news-card border-0 shadow-sm">
-                  <div class="row g-0">
+            <div class="news-list d-flex flex-column" style="height: 452px;">
+              <div v-for="i in 3" :key="i" class="news-item" :style="{height: i < 3 ? '146px' : '146px', marginBottom: i < 3 ? '7px' : '0'}">
+                <div class="card news-card border-0 shadow-sm h-100">
+                  <div class="row g-0 h-100">
                     <div class="col-4" style="max-height: 90px; overflow: hidden;">
                       <LazyImage 
                         :src="`https://picsum.photos/seed/news${i}/300/200`" 
@@ -296,12 +298,12 @@ export default defineComponent({
   border: none;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   height: 100%;
-  display: flex;
+  border-radius: 0.5rem;
+  overflow: hidden;
 }
 
-.featured-img {
-  border-radius: 0.375rem 0 0 0.375rem;
-  object-position: center;
+.featured-news .col-md-5 {
+  border-radius: 0.5rem 0 0 0.5rem;
 }
 
 .news-card {
