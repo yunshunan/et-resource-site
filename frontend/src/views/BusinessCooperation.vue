@@ -1,11 +1,21 @@
 <template>
   <div class="business-cooperation">
-    <div class="container py-5">
-      <h1 class="text-center mb-5">商务合作</h1>
-      
+    <!-- 页面标题区域 - 与资源市场等页面保持一致的样式 -->
+    <div class="page-header bg-light py-4 mb-4">
+      <div class="container">
+        <div class="row">
+          <div class="col-12">
+            <h1 class="section-heading text-center mb-2">商务合作</h1>
+            <p class="text-center text-muted">与Et资源小站携手，共创共赢未来</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="container py-4">
       <!-- 合作优势 -->
       <section class="mb-5">
-        <h2 class="text-center mb-4">为什么选择我们</h2>
+        <h2 class="section-heading text-center mb-4">为什么选择我们</h2>
         <div class="row">
           <div class="col-md-4 mb-4">
             <div class="card h-100 shadow-sm text-center p-3">
@@ -41,7 +51,7 @@
       
       <!-- 合作模式 -->
       <section class="mb-5">
-        <h2 class="text-center mb-4">合作模式</h2>
+        <h2 class="section-heading text-center mb-4">合作模式</h2>
         <div class="row">
           <div class="col-lg-6 mb-4">
             <div class="card shadow-sm h-100">
@@ -103,7 +113,7 @@
       
       <!-- 合作流程 -->
       <section class="mb-5">
-        <h2 class="text-center mb-4">合作流程</h2>
+        <h2 class="section-heading text-center mb-4">合作流程</h2>
         <div class="row justify-content-center">
           <div class="col-md-10">
             <div class="card shadow-sm">
@@ -141,11 +151,12 @@
       
       <!-- 联系方式 -->
       <section>
+        <h2 class="section-heading text-center mb-4">联系我们</h2>
         <div class="card shadow-sm">
           <div class="card-body p-4">
             <div class="row">
               <div class="col-md-6">
-                <h3 class="mb-4">联系我们</h3>
+                <h3 class="mb-4">商务咨询</h3>
                 <p>如果您对我们的合作模式感兴趣，或有任何疑问，欢迎通过以下方式联系我们的商务团队：</p>
                 <ul class="list-unstyled">
                   <li class="mb-3">
@@ -244,11 +255,34 @@ export default {
 </script>
 
 <style scoped>
+.page-header {
+  border-bottom: 1px solid rgba(0,0,0,0.1);
+}
+
+.section-heading {
+  position: relative;
+  display: inline-block;
+  margin-bottom: 1.5rem;
+  font-weight: 600;
+}
+
+.section-heading::after {
+  content: '';
+  position: absolute;
+  bottom: -10px;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background-color: var(--bs-primary);
+  width: 60px;
+  margin: 0 auto;
+}
+
 .process-step {
   width: 50px;
   height: 50px;
   border-radius: 50%;
-  background-color: #3498db;
+  background-color: var(--bs-primary);
   color: white;
   display: flex;
   align-items: center;
@@ -261,18 +295,33 @@ export default {
 .process-line {
   flex-grow: 1;
   height: 3px;
-  background-color: #3498db;
+  background-color: var(--bs-primary);
   margin-top: 25px;
   margin-left: 10px;
   margin-right: 10px;
 }
 
 .card {
-  border-radius: 10px;
-  transition: transform 0.3s;
+  border-radius: var(--border-radius, 10px);
+  transition: transform 0.3s, box-shadow 0.3s;
+  border: none;
 }
 
 .card:hover {
   transform: translateY(-5px);
+  box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+}
+
+.card-header {
+  border-radius: var(--border-radius, 10px) var(--border-radius, 10px) 0 0 !important;
+}
+
+/* 响应式优化 */
+@media (max-width: 767.98px) {
+  .process-step {
+    width: 40px;
+    height: 40px;
+    font-size: 1.2rem;
+  }
 }
 </style> 

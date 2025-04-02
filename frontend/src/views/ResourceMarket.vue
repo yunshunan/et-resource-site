@@ -132,11 +132,12 @@
 // 注释掉未使用的导入或改为按需导入
 // import { resourceApi } from '@/services/api'
 // import { useResourceStore } from '@/stores/resources'
-import { computed, ref, onMounted, watch } from 'vue'
+import { computed, ref, onMounted, watch, watchEffect } from 'vue'
 import VirtualList from '@/components/common/VirtualList.vue'
 import MemoComponent from '@/components/common/MemoComponent.vue'
 import LazyImage from '@/components/common/LazyImage.vue'
 import ResourceCardSkeleton from '@/components/resource/ResourceCardSkeleton.vue'
+import { useRoute } from 'vue-router'
 
 export default {
   name: 'ResourceMarketPage',
@@ -163,6 +164,7 @@ export default {
     const totalResources = ref(0)
     const loading = ref(false)
     const error = ref(null)
+    const route = useRoute()
 
     // 计算属性使用computed函数
     const filteredResources = computed(() => {
@@ -185,6 +187,14 @@ export default {
 
     const totalPages = computed(() => {
       return Math.ceil(totalResources.value / pageSize.value)
+    })
+
+    // 处理URL查询参数
+    watchEffect(() => {
+      if (route.query.search) {
+        searchQuery.value = route.query.search
+        fetchResources()
+      }
     })
 
     // 方法
@@ -287,6 +297,10 @@ export default {
 
     // 生命周期钩子
     onMounted(() => {
+      // 检查URL中是否有搜索参数
+      if (route.query.search) {
+        searchQuery.value = route.query.search
+      }
       fetchResources()
     })
 

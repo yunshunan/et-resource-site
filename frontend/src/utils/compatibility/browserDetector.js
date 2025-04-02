@@ -87,12 +87,12 @@ const detectBrowser = () => {
     ES6: {
       supported: true,
       details: {
-        'let/const': typeof let !== 'undefined',
+        'let/const': (function() { try { new Function('let x = 1'); return true; } catch(e) { return false; } })(),
         'arrow functions': typeof (() => {}) === 'function',
         'promises': typeof Promise !== 'undefined',
         'async/await': typeof async function(){}.constructor === 'function',
         'classes': typeof class Test {} === 'function',
-        'modules': typeof import === 'function'
+        'modules': (function() { try { new Function('return import("")'); return true; } catch(e) { return false; } })()
       }
     },
     WebGL: {

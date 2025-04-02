@@ -1,11 +1,20 @@
 import axios from 'axios'
 import { useAuthStore } from '@/stores/auth'
-import * as networkSimulator from '@/utils/networkSimulator'
-import * as performanceMonitor from '@/utils/performanceMonitor'
+
+// 获取API基础URL（避免使用process.env）
+const getApiBaseUrl = () => {
+  // 检查是否在Vite环境中（Vite使用import.meta.env而不是process.env）
+  if (typeof import.meta !== 'undefined' && import.meta.env) {
+    return import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+  }
+  
+  // 回退到默认URL
+  return 'http://localhost:3000/api';
+};
 
 // 创建axios实例
 const api = axios.create({
-  baseURL: process.env.VUE_APP_API_URL || 'http://localhost:3000/api',
+  baseURL: getApiBaseUrl(),
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json'
@@ -16,30 +25,35 @@ const api = axios.create({
   }
 })
 
+// 性能监控函数 - 简化版
+const recordApiPerformance = (url, method, duration, status) => {
+  if (window.performanceMonitor && typeof window.performanceMonitor.recordApiCall === 'function') {
+    try {
+      window.performanceMonitor.recordApiCall(url, method, duration, status);
+    } catch (e) {
+      console.warn('API性能记录失败:', e);
+    }
+  }
+};
+
 // 请求拦截器
 api.interceptors.request.use(
   async config => {
     // 记录请求开始时间
-    config.requestStartTime = performance.now()
+    config.requestStartTime = performance.now();
     
     // 从状态管理中获取认证信息
-    const authStore = useAuthStore()
+    const authStore = useAuthStore();
     
     // 如果有token，添加到请求头
     if (authStore.token) {
-      config.headers['Authorization'] = `Bearer ${authStore.token}`
+      config.headers['Authorization'] = `Bearer ${authStore.token}`;
     }
     
-    // 应用网络模拟逻辑
-    if (process.env.NODE_ENV === 'development') {
-      const simulatedConfig = await networkSimulator.simulateApiCall(config)
-      return simulatedConfig
-    }
-    
-    return config
+    return config;
   },
   error => {
-    return Promise.reject(error)
+    return Promise.reject(error);
   }
 )
 
@@ -47,50 +61,51 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   response => {
     // 计算请求持续时间
-    const duration = performance.now() - response.config.requestStartTime
+    const duration = performance.now() - response.config.requestStartTime;
     
     // 记录API调用性能
-    performanceMonitor.recordApiCall(
+    recordApiPerformance(
       response.config.url,
       response.config.method,
       duration,
       response.status
-    )
+    );
     
     // 统一处理响应数据格式
-    return response.data
+    return response.data;
   },
   async error => {
     // 计算请求持续时间
-    const duration = performance.now() - error.config?.requestStartTime
+    const duration = error.config?.requestStartTime ? 
+      performance.now() - error.config.requestStartTime : 0;
     
     // 记录API调用性能（失败）
     if (error.config) {
-      performanceMonitor.recordApiCall(
+      recordApiPerformance(
         error.config.url,
         error.config.method,
         duration,
         error.response?.status || 0
-      )
+      );
     }
     
     // 处理401错误（未授权），尝试刷新Token
     if (error.response && error.response.status === 401) {
-      const authStore = useAuthStore()
+      const authStore = useAuthStore();
       
       // 尝试刷新Token
-      const tokenRefreshed = await authStore.refreshAccessToken()
+      const tokenRefreshed = await authStore.refreshAccessToken();
       
       // 如果Token刷新成功，重试原请求
       if (tokenRefreshed && error.config) {
         // 更新请求配置中的Authorization头
-        error.config.headers['Authorization'] = `Bearer ${authStore.token}`
-        return api(error.config)
+        error.config.headers['Authorization'] = `Bearer ${authStore.token}`;
+        return api(error.config);
       }
     }
     
-    console.error('API请求错误:', error)
-    return Promise.reject(error)
+    console.error('API请求错误:', error);
+    return Promise.reject(error);
   }
 )
 
@@ -122,4 +137,4 @@ export const authApi = {
   refreshToken: (refreshToken) => api.post('/auth/refresh-token', { refreshToken })
 }
 
-export default api 
+export default api; 

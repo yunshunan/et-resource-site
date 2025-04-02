@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <link rel="icon" href="/favicon.ico">
+  <title>Et 资源小站</title>
+  <style>
+    body { 
+      font-family: Arial, sans-serif; 
+      margin: 0; 
+      padding: 0; 
+      background-color: #f8f9fa;
+    }
+    #app-loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      text-align: center;
+      padding: 20px;
+    }
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: 4px solid rgba(0, 123, 255, 0.1);
+      border-left-color: #0d6efd;
+      animation: spin 1s linear infinite;
+      margin-bottom: 20px;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .loading-message {
+      font-size: 18px;
+      color: #333;
+      margin-bottom: 10px;
+    }
+    .loading-subtitle {
+      font-size: 14px;
+      color: #666;
+      max-width: 400px;
+    }
+    .debug-info {
+      margin-top: 30px;
+      padding: 10px;
+      background: #f1f1f1;
+      border-radius: 4px;
+      font-size: 12px;
+      width: 80%;
+      max-width: 500px;
+      text-align: left;
+      word-break: break-all;
+      overflow: auto;
+      max-height: 150px;
+      display: none;
+    }
+    .test-content { 
+      display: none; /* 隐藏测试内容 */
+    }
+  </style>
+  <!-- 预加载字体图标 -->
+  <link rel="preconnect" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.0/font/bootstrap-icons.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Vue应用将在这里挂载 -->
+    <div id="app-loading">
+      <div class="spinner"></div>
+      <div class="loading-message">加载中...</div>
+      <div class="loading-subtitle">正在初始化应用和资源，请稍候</div>
+      <div class="debug-info" id="loading-debug"></div>
+    </div>
+  </div>
+  
+  <!-- 测试内容，如果这个显示，说明HTML加载正常但Vue应用可能有问题 -->
+  <div class="test-content">
+    <h1>测试页面</h1>
+    <p>如果您能看到这段内容，说明HTML已经正确加载了，但Vue应用可能还有问题。</p>
+    <p>请检查浏览器控制台中的错误信息。</p>
+  </div>
+  
+  <script>
+    // 简单的页面加载调试工具
+    let loadingStart = Date.now();
+    let loadingInterval = setInterval(function() {
+      const debugEl = document.getElementById('loading-debug');
+      if (debugEl) {
+        // 加载超过5秒，显示调试信息
+        if (Date.now() - loadingStart > 5000) {
+          debugEl.style.display = 'block';
+          debugEl.innerHTML = `
+            <strong>加载时间: ${((Date.now() - loadingStart) / 1000).toFixed(1)}秒</strong><br>
+            <strong>页面状态: ${document.readyState}</strong><br>
+            <strong>窗口尺寸: ${window.innerWidth}x${window.innerHeight}</strong><br>
+            <strong>用户代理: ${navigator.userAgent.substring(0, 100)}...</strong><br>
+            <button onclick="document.querySelector('.test-content').style.display='block'">显示测试内容</button>
+            <button onclick="window.location.reload()">刷新页面</button>
+          `;
+        }
+      }
+    }, 1000);
+    
+    // 页面加载完成后清除定时器
+    window.addEventListener('load', function() {
+      clearInterval(loadingInterval);
+    });
+  </script>
+  
+  <!-- 辅助脚本 -->
+  <script src="/helper.js"></script>
+  
+  <!-- Vue应用入口脚本 -->
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

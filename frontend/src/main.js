@@ -2,19 +2,67 @@ import { createApp } from 'vue'
 import App from './App.vue'
 import router from './router'
 import pinia from './stores'
+import { initializeApp as bootstrapApp } from './bootstrap'
 import 'bootstrap/dist/css/bootstrap.min.css'
-import 'bootstrap/dist/js/bootstrap.bundle.min.js'
 import 'bootstrap-icons/font/bootstrap-icons.css'
 import './assets/styles/main.css'
-import { initPerformanceMonitoring } from './utils/performance'
 
-// 初始化性能监控
-if (process.env.NODE_ENV !== 'test') {
-  initPerformanceMonitoring();
-}
+console.log('开始应用初始化流程...')
 
-const app = createApp(App)
+// 导入bootstrap JS (确保正确初始化)
+import * as bootstrap from 'bootstrap'
+window.bootstrap = bootstrap
 
-app.use(pinia)
-app.use(router)
-app.mount('#app') 
+// 捕获未处理的Promise错误
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('未处理的Promise错误:', event.reason)
+})
+
+// 捕获全局JavaScript错误
+window.addEventListener('error', (event) => {
+  console.error('全局JS错误:', event.error)
+})
+
+// 异步初始化应用
+bootstrapApp().then(() => {
+  console.log('初始化完成，创建Vue应用...')
+  const app = createApp(App)
+  
+  // 开发模式配置
+  app.config.devtools = true
+  app.config.performance = true
+  app.config.silent = false
+  app.config.warnHandler = function(msg, vm, trace) {
+    console.warn('[Vue警告]:', msg)
+    if (trace) {
+      console.warn('跟踪:', trace)
+    }
+  }
+  app.config.errorHandler = function(err, vm, info) {
+    console.error('[Vue错误]:', err)
+    console.error('错误信息:', info)
+  }
+  
+  // 使用插件
+  app.use(pinia)
+  app.use(router)
+  
+  // 挂载应用
+  console.log('挂载Vue应用...')
+  app.mount('#app')
+  
+  console.log('Vue应用已挂载!')
+}).catch(error => {
+  console.error('初始化失败:', error)
+  // 显示错误信息到页面
+  const appElement = document.getElementById('app')
+  if (appElement) {
+    appElement.innerHTML = `
+      <div style="text-align: center; padding: 20px; color: red;">
+        <h2>应用加载失败</h2>
+        <p>详细错误: ${error.message || '未知错误'}</p>
+        <button onclick="location.reload()">重试</button>
+      </div>
+    `
+  }
+}) 

@@ -1,5 +1,5 @@
 import { detectBrowser, getBrowserReport } from './browserDetector'
-import { runPerformanceTests, getTestSummary } from './performanceTests'
+import performanceTests, { getTestSummary } from './performanceTests'
 
 // 运行完整的兼容性测试
 const runCompatibilityTests = async () => {
@@ -8,8 +8,51 @@ const runCompatibilityTests = async () => {
   // 获取浏览器报告
   const browserReport = getBrowserReport()
   
-  // 运行性能测试
-  const performanceResults = await runPerformanceTests()
+  // 收集性能测试结果
+  const performanceResults = []
+  
+  // 执行内存测试
+  if (performanceTests.memoryTest.enabled) {
+    try {
+      const result = performanceTests.memoryTest.execute()
+      performanceResults.push({
+        name: performanceTests.memoryTest.name,
+        category: 'Memory',
+        duration: 0,
+        status: result.message ? 'skipped' : 'success',
+        details: result
+      })
+    } catch (error) {
+      performanceResults.push({
+        name: performanceTests.memoryTest.name,
+        category: 'Memory',
+        status: 'failed',
+        error: error.message
+      })
+    }
+  }
+  
+  // 执行网络测试
+  if (performanceTests.networkTest.enabled) {
+    try {
+      const result = await performanceTests.networkTest.execute('/api/test')
+      performanceResults.push({
+        name: performanceTests.networkTest.name,
+        category: 'Network',
+        duration: result.responseTime,
+        status: result.error ? 'failed' : 'success',
+        details: result
+      })
+    } catch (error) {
+      performanceResults.push({
+        name: performanceTests.networkTest.name,
+        category: 'Network',
+        status: 'failed',
+        error: error.message
+      })
+    }
+  }
+  
   const performanceSummary = getTestSummary(performanceResults)
   
   // 生成完整报告
@@ -32,13 +75,13 @@ const runCompatibilityTests = async () => {
       ...issue
     })),
     ...performanceResults
-      .filter(result => !result.passed)
+      .filter(result => result.status === 'failed')
       .map(result => ({
         type: 'performance',
         category: result.category,
         feature: result.name,
         severity: result.error ? 'error' : 'warning',
-        details: result.error || `性能未达标 (${result.duration}ms > ${result.threshold}ms)`
+        details: result.error || `性能未达标`
       }))
   ]
   
