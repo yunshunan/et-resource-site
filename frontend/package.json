@@ -11,11 +11,11 @@
     "test": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:performance": "node scripts/runPerformanceTests.js",
-    "test:e2e": "playwright test",
+    "test:e2e": "start-server-and-test preview http://localhost:4173 'cypress run --e2e'",
     "test:e2e:dev": "cypress open",
     "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs --fix --ignore-path .gitignore",
     "type-check": "vue-tsc --noEmit",
-    "prepare": "husky install",
+    "prepare": "cd .. && husky install .git/hooks",
     "test:unit": "vitest",
     "format": "prettier --write src/",
     "deploy": "bash auto-deploy.sh"
@@ -41,11 +41,13 @@
     "html2pdf.js": "^0.10.1",
     "leancloud-storage": "^4.15.2",
     "lodash": "^4.17.21",
+    "micromatch": "^4.0.8",
     "pinia": "^2.1.6",
     "pinia-plugin-persistedstate": "^4.2.0",
     "vue": "^3.3.4",
     "vue-chartjs": "^4.1.1",
     "vue-router": "^4.2.4",
+    "vue-template-compiler": "^2.7.16",
     "web-vitals": "^4.2.4"
   },
   "devDependencies": {
@@ -60,7 +62,7 @@
     "prettier": "^3.0.1",
     "sass": "^1.64.2",
     "typescript": "^5.1.6",
-    "vite": "^4.4.9",
+    "vite": "^5.0.0",
     "vitest": "^0.33.0",
     "vue-tsc": "^1.8.8"
   },
