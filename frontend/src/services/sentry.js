@@ -14,7 +14,7 @@ const initSentry = (app) => {
     dsn: import.meta.env.VITE_SENTRY_DSN,
     integrations: [
       new BrowserTracing({
-        routingInstrumentation: Sentry.vueRouterInstrumentation(router),
+        routingInstrumentation: () => {}, // 暂时移除路由监控，等路由配置完成后再启用
         tracingOrigins: ['localhost', 'et-resource-site.com', /^\//]
       })
     ],

@@ -51,11 +51,13 @@ const homeRoutes = require('./routes/home');
 const resourceRoutes = require('./routes/resources');
 const newsRoutes = require('./routes/news');
 const authRoutes = require('./routes/auth');
+const healthRoutes = require('./routes/health');
 
 app.use('/api/home', homeRoutes);
 app.use('/api/resources', resourceRoutes);
 app.use('/api/news', newsRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api', healthRoutes);
 
 // 首页测试路由
 app.get('/', (req, res) => {
