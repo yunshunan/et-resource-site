@@ -31,9 +31,8 @@ jobs:
         NODE_ENV: test
         PERFORMANCE_TEST_ENABLED: true
         
-    - name: Upload test report
-      if: always()
-      uses: actions/upload-artifact@v2
+    - name: Upload performance results
+      uses: actions/upload-artifact@v4
       with:
         name: performance-test-report
         path: frontend/reports/performance/

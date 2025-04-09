@@ -48,7 +48,7 @@ jobs:
           npm run test:e2e
           
       - name: Upload test coverage
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: coverage
           path: frontend/coverage
@@ -80,8 +80,8 @@ jobs:
           npm run preview & sleep 5
           curl -s http://localhost:4173 | grep -q "Et 资源小站"
           
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v2
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
         with:
           name: dist
           path: frontend/dist
