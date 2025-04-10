@@ -13,15 +13,53 @@
 </template>
 
 <script>
-import { defineComponent } from 'vue'
+import { defineComponent, onMounted } from 'vue'
 import Navigation from '@/components/layout/Navigation.vue'
 import FooterComponent from '@/components/common/FooterComponent.vue'
+import { getAuth, onAuthStateChanged } from '@firebase/auth'
+import { useAuthStore } from '@/stores/auth'
 
 export default defineComponent({
   name: 'App',
   components: {
     Navigation,
     FooterComponent
+  },
+  setup() {
+    const authStore = useAuthStore()
+
+    onMounted(() => {
+      // Initialize auth state from local storage
+      authStore.init()
+
+      // Set up Firebase auth state change listener
+      const auth = getAuth()
+      onAuthStateChanged(auth, async (user) => {
+        if (user) {
+          // User is signed in
+          try {
+            // Get Firebase ID token
+            const idToken = await user.getIdToken()
+            
+            // Verify token with backend to get JWT
+            await authStore.verifyFirebaseToken(idToken)
+          } catch (error) {
+            console.error('Failed to process authentication:', error)
+          }
+        } else {
+          // User is signed out
+          // Only clear auth if we were previously authenticated through Firebase
+          // This check prevents clearing token-based auth that might not use Firebase
+          if (authStore.user && authStore.user.firebase_uid) {
+            authStore.logout()
+          }
+        }
+      })
+    })
+
+    return {
+      // ... existing return values ...
+    }
   },
   beforeCreate() {
     console.log('App beforeCreate hook')

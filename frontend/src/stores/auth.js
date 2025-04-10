@@ -1,13 +1,13 @@
 import { defineStore } from 'pinia'
 import { authApi } from '@/services/api'
+import AV from '@/config/leancloud'
 // eslint-disable-next-line no-unused-vars
 import { wrapApiCall, extractErrorMessage } from '@/utils/errorHandler'
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
     user: null,
-    token: null,
-    refreshToken: null,
+    token: localStorage.getItem('jwt') || null,
     isAuthenticated: false,
     loading: false,
     error: null
@@ -27,130 +27,176 @@ export const useAuthStore = defineStore('auth', {
   actions: {
     // 登录
     async login(email, password) {
+      this.loading = true;
+      this.error = null;
+      
       try {
-        const result = await wrapApiCall(
-          () => authApi.login({ email, password }),
-          this,
-          '登录失败'
-        );
+        // 使用LeanCloud进行身份验证
+        const user = await AV.User.logIn(email, password);
         
-        if (result) {
-          // 提取用户信息和令牌
-          this.user = result.user || null;
-          this.token = result.tokens?.accessToken || result.accessToken || null;
-          this.refreshToken = result.tokens?.refreshToken || result.refreshToken || null;
-          this.isAuthenticated = !!this.token;
+        // 获取LeanCloud Session Token
+        const sessionToken = user.getSessionToken();
+        
+        // 发送令牌到后端进行验证并获取JWT
+        const result = await authApi.verifyLeanCloudToken(sessionToken);
+        
+        if (result && result.token) {
+          this.user = {
+            id: user.id,
+            email: user.get('email'),
+            username: user.get('username'),
+            role: user.get('role') || 'user',
+            avatar: user.get('avatar'),
+            createdAt: user.get('createdAt')
+          };
+          this.token = result.token;
+          this.isAuthenticated = true;
+          
+          // 保存JWT到localStorage
+          localStorage.setItem('jwt', result.token);
+          
           return true;
         }
         
         return false;
       } catch (error) {
+        console.error('登录失败:', error);
+        this.error = extractErrorMessage(error) || '登录失败，请检查您的凭证';
         return false;
+      } finally {
+        this.loading = false;
       }
     },
     
     // 注册
-    async register(userData) {
+    async register(email, password, username) {
+      this.loading = true;
+      this.error = null;
+      
       try {
-        const result = await wrapApiCall(
-          () => authApi.register(userData),
-          this,
-          '注册失败'
-        );
+        // 使用LeanCloud创建用户
+        const user = new AV.User();
+        user.setUsername(username || email);
+        user.setPassword(password);
+        user.setEmail(email);
         
-        if (result) {
-          // 提取用户信息和令牌
-          this.user = result.user || null;
-          this.token = result.tokens?.accessToken || result.accessToken || null;
-          this.refreshToken = result.tokens?.refreshToken || result.refreshToken || null;
-          this.isAuthenticated = !!this.token;
+        // 添加默认角色
+        user.set('role', 'user');
+        
+        // 注册新用户
+        await user.signUp();
+        
+        // 注册成功后，获取LeanCloud Session Token
+        const sessionToken = user.getSessionToken();
+        
+        // 发送令牌到后端进行验证并获取JWT
+        const result = await authApi.verifyLeanCloudToken(sessionToken);
+        
+        if (result && result.token) {
+          this.user = {
+            id: user.id,
+            email: user.get('email'),
+            username: user.get('username'),
+            role: user.get('role') || 'user',
+            avatar: user.get('avatar'),
+            createdAt: user.get('createdAt')
+          };
+          this.token = result.token;
+          this.isAuthenticated = true;
+          
+          // 保存JWT到localStorage
+          localStorage.setItem('jwt', result.token);
+          
           return true;
         }
         
         return false;
       } catch (error) {
+        console.error('注册失败:', error);
+        this.error = extractErrorMessage(error) || '注册失败，请稍后重试';
         return false;
+      } finally {
+        this.loading = false;
+      }
+    },
+    
+    // 使用LeanCloud Session Token获取JWT
+    async verifyLeanCloudToken(sessionToken) {
+      this.loading = true;
+      this.error = null;
+      
+      try {
+        // 发送令牌到后端进行验证并获取JWT
+        const result = await authApi.verifyLeanCloudToken(sessionToken);
+        
+        if (result && result.token) {
+          this.user = result.user;
+          this.token = result.token;
+          this.isAuthenticated = true;
+          
+          // 保存JWT到localStorage
+          localStorage.setItem('jwt', result.token);
+          
+          return true;
+        }
+        
+        return false;
+      } catch (error) {
+        console.error('验证令牌失败:', error);
+        this.error = extractErrorMessage(error) || '身份验证失败';
+        return false;
+      } finally {
+        this.loading = false;
       }
     },
     
     // 注销
     async logout() {
       try {
-        if (this.isAuthenticated) {
-          await wrapApiCall(
-            () => authApi.logout(),
-            null, // 不需要设置loading和error状态
-            '注销失败'
-          );
-        }
+        // 尝试登出LeanCloud
+        await AV.User.logOut();
+        
+        // 清除本地存储
+        localStorage.removeItem('jwt');
+        
+        // 重置状态
+        this.user = null;
+        this.token = null;
+        this.isAuthenticated = false;
+        this.error = null;
+        
+        return true;
       } catch (error) {
-        // 即使注销失败，我们仍然要清除本地状态
         console.error('注销失败:', error);
-      } finally {
-        // 清除认证状态
-        this.clearAuth();
+        return false;
       }
     },
     
-    // 清除认证状态
-    clearAuth() {
-      this.user = null;
-      this.token = null;
-      this.refreshToken = null;
-      this.isAuthenticated = false;
-      this.error = null;
-    },
-    
-    // 获取当前用户信息
-    async fetchCurrentUser() {
-      if (!this.token) return false;
+    // 初始化认证状态
+    async init() {
+      // 检查本地存储中是否有JWT
+      const token = localStorage.getItem('jwt');
       
-      try {
-        const result = await wrapApiCall(
-          () => authApi.getMe(),
-          this,
-          '获取用户信息失败'
-        );
+      if (token) {
+        this.token = token;
         
-        if (result) {
-          this.user = result;
-          this.isAuthenticated = true;
-          return true;
+        // 尝试获取用户信息
+        try {
+          const user = await authApi.getMe();
+          
+          if (user) {
+            this.user = user;
+            this.isAuthenticated = true;
+            return true;
+          }
+        } catch (error) {
+          // 如果令牌无效，清除认证状态
+          console.error('初始化认证状态失败:', error);
+          this.logout();
         }
-        
-        return false;
-      } catch (error) {
-        // 如果出现401错误，表示token已过期，执行注销
-        if (error.response?.status === 401) {
-          this.clearAuth();
-        }
-        return false;
       }
-    },
-    
-    // 刷新token
-    async refreshAccessToken() {
-      if (!this.refreshToken) return false;
       
-      try {
-        const result = await wrapApiCall(
-          () => authApi.refreshToken(this.refreshToken),
-          null, // 不需要设置loading和error状态
-          '刷新token失败'
-        );
-        
-        if (result) {
-          // 更新token
-          this.token = result.accessToken || null;
-          return !!this.token;
-        }
-        
-        return false;
-      } catch (error) {
-        // 如果刷新失败，清除认证状态
-        this.clearAuth();
-        return false;
-      }
+      return false;
     }
   },
   
@@ -158,6 +204,6 @@ export const useAuthStore = defineStore('auth', {
   persist: {
     key: 'et-auth',
     storage: localStorage,
-    paths: ['token', 'refreshToken', 'user', 'isAuthenticated']
+    paths: ['token', 'user', 'isAuthenticated']
   }
 }) 

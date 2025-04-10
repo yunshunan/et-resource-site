@@ -7,6 +7,11 @@ import 'bootstrap/dist/css/bootstrap.min.css'
 import 'bootstrap-icons/font/bootstrap-icons.css'
 import './assets/styles/main.css'
 
+// Import service configurations
+import './config/firebase' // Firebase will be initialized on import
+import AV from './config/leancloud' // LeanCloud is already initialized
+import { initSentry } from './config/sentry' // Sentry will be initialized later
+
 console.log('开始应用初始化流程...')
 
 // 导入bootstrap JS (确保正确初始化)
@@ -47,9 +52,19 @@ bootstrapApp().then(() => {
   app.use(pinia)
   app.use(router)
   
+  // Initialize Sentry after router is attached
+  if (import.meta.env.PROD || import.meta.env.VITE_SENTRY_FORCE_ENABLE === 'true') {
+    initSentry(app, router)
+  }
+  
   // 挂载应用
   console.log('挂载Vue应用...')
   app.mount('#app')
+  
+  // Log LeanCloud initialization status (for debugging)
+  if (AV.applicationId) {
+    console.log('LeanCloud 已初始化')
+  }
   
   console.log('Vue应用已挂载!')
 }).catch(error => {

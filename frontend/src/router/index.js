@@ -8,14 +8,19 @@ import Login from '@/views/Login.vue'
 import Register from '@/views/Register.vue'
 import Profile from '@/views/UserProfile.vue'
 import ResourceMarket from '@/views/ResourceMarket.vue'
+import ResourceDetail from '@/views/ResourceDetail.vue'
 import Contact from '@/views/Contact.vue'
 import News from '@/views/News.vue'
+import NewsDetail from '@/views/NewsDetail.vue'
 import NotFound from '@/views/NotFoundView.vue'
 import PerformanceDashboard from '@/views/PerformanceDashboard.vue'
 import BusinessCooperation from '@/views/BusinessCooperation.vue'
 import ResourceUpload from '@/views/ResourceUpload.vue'
 import UserFavorites from '@/views/UserFavorites.vue'
 import UserResources from '@/views/UserResources.vue'
+import LoginView from '../views/LoginView.vue'
+import RegisterView from '../views/RegisterView.vue'
+import TestLeanCloud from '@/views/TestLeanCloud.vue'
 
 // 管理员页面
 import AdminLayout from '@/views/admin/AdminLayout.vue'
@@ -43,14 +48,14 @@ const routes = [
   {
     path: '/login',
     name: 'Login',
-    component: Login,
-    meta: { title: '登录', guestOnly: true }
+    component: LoginView,
+    meta: { requiresGuest: true }
   },
   {
     path: '/register',
     name: 'Register',
-    component: Register,
-    meta: { title: '注册', guestOnly: true }
+    component: RegisterView,
+    meta: { requiresGuest: true }
   },
   {
     path: '/profile',
@@ -63,6 +68,16 @@ const routes = [
     name: 'ResourceMarket',
     component: ResourceMarket,
     meta: { title: '资源市场' }
+  },
+  {
+    path: '/resource-market/:id',
+    name: 'ResourceDetail',
+    component: ResourceDetail,
+    meta: {
+      requiresAuth: false,
+      title: '资源详情 - ET资源网'
+    },
+    props: true
   },
   {
     path: '/resource-upload',
@@ -95,10 +110,23 @@ const routes = [
     meta: { title: '新闻资讯' }
   },
   {
+    path: '/news/:id',
+    name: 'NewsDetail',
+    component: NewsDetail,
+    meta: { title: '新闻详情' },
+    props: true
+  },
+  {
     path: '/performance-dashboard',
     name: 'PerformanceDashboard',
     component: PerformanceDashboard,
     meta: { title: '性能监控', requiresAuth: true, requiresAdmin: true }
+  },
+  {
+    path: '/test-leancloud',
+    name: 'TestLeanCloud',
+    component: TestLeanCloud,
+    meta: { title: 'LeanCloud功能测试' }
   },
   {
     path: '/admin',

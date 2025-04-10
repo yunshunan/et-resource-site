@@ -5,11 +5,11 @@ import { useAuthStore } from '@/stores/auth'
 const getApiBaseUrl = () => {
   // 检查是否在Vite环境中（Vite使用import.meta.env而不是process.env）
   if (typeof import.meta !== 'undefined' && import.meta.env) {
-    return import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+    return import.meta.env.VITE_API_BASE_URL || 'http://localhost:3030/api';
   }
   
   // 回退到默认URL
-  return 'http://localhost:3000/api';
+  return 'http://localhost:3030/api';
 };
 
 // 创建axios实例
@@ -132,6 +132,7 @@ export const newsApi = {
 export const authApi = {
   login: (credentials) => api.post('/auth/login', credentials),
   register: (userData) => api.post('/auth/register', userData),
+  verifyLeanCloudToken: (sessionToken) => api.post('/auth/verify-leancloud-token', { sessionToken }),
   getMe: () => api.get('/auth/me'),
   logout: () => api.post('/auth/logout'),
   refreshToken: (refreshToken) => api.post('/auth/refresh-token', { refreshToken })

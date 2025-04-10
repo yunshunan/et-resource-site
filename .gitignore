@@ -122,4 +122,7 @@ Icon
 
 # ESLint temporary files
 **/eslint-test*.js
-**/eslint-test*.vue 
+**/eslint-test*.vue
+
+# Firebase 服务账号
+/backend/config/firebase-service-account.json 

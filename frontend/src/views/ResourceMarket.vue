@@ -129,15 +129,13 @@
 </template>
 
 <script>
-// 注释掉未使用的导入或改为按需导入
-// import { resourceApi } from '@/services/api'
-// import { useResourceStore } from '@/stores/resources'
 import { computed, ref, onMounted, watch, watchEffect } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import VirtualList from '@/components/common/VirtualList.vue'
 import MemoComponent from '@/components/common/MemoComponent.vue'
 import LazyImage from '@/components/common/LazyImage.vue'
 import ResourceCardSkeleton from '@/components/resource/ResourceCardSkeleton.vue'
-import { useRoute } from 'vue-router'
+import resourceService from '@/services/resourceService'
 
 export default {
   name: 'ResourceMarketPage',
@@ -148,15 +146,12 @@ export default {
     ResourceCardSkeleton
   },
   setup() {
-    // 使用响应式引用替代data选项
+    const router = useRouter();
+    const route = useRoute();
+    
+    // 状态
     const resources = ref([])
-    const categories = ref([
-      { id: 1, name: '办公资源' },
-      { id: 2, name: '设计资源' },
-      { id: 3, name: '营销资源' },
-      { id: 4, name: '教育资源' },
-      { id: 5, name: '开发资源' }
-    ])
+    const categories = ref([])
     const activeCategory = ref('')
     const searchQuery = ref('')
     const currentPage = ref(1)
@@ -164,150 +159,154 @@ export default {
     const totalResources = ref(0)
     const loading = ref(false)
     const error = ref(null)
-    const route = useRoute()
 
-    // 计算属性使用computed函数
+    // 计算属性
     const filteredResources = computed(() => {
-      let result = resources.value
-
+      let result = resources.value;
+      
       if (activeCategory.value) {
-        result = result.filter(resource => resource.category === activeCategory.value)
+        result = result.filter(resource => resource.category === activeCategory.value);
       }
-
+      
       if (searchQuery.value) {
-        const query = searchQuery.value.toLowerCase()
+        const query = searchQuery.value.toLowerCase();
         result = result.filter(resource => 
           resource.title.toLowerCase().includes(query) || 
           resource.description.toLowerCase().includes(query)
-        )
+        );
       }
-
-      return result
-    })
+      
+      // 计算分页后的总页数
+      totalResources.value = result.length;
+      
+      // 分页处理
+      const startIndex = (currentPage.value - 1) * pageSize.value;
+      const endIndex = startIndex + pageSize.value;
+      
+      return result.slice(startIndex, endIndex);
+    });
 
     const totalPages = computed(() => {
-      return Math.ceil(totalResources.value / pageSize.value)
-    })
+      return Math.ceil(totalResources.value / pageSize.value);
+    });
 
     // 处理URL查询参数
     watchEffect(() => {
       if (route.query.search) {
-        searchQuery.value = route.query.search
-        fetchResources()
+        searchQuery.value = route.query.search;
+        fetchResources();
       }
-    })
+      
+      if (route.query.category) {
+        activeCategory.value = route.query.category;
+        fetchResources();
+      }
+    });
 
     // 方法
+    const fetchCategories = async () => {
+      try {
+        categories.value = await resourceService.getCategories();
+      } catch (err) {
+        console.error('Failed to fetch categories:', err);
+        // 使用默认分类作为备选
+        categories.value = [
+          { id: 'cat1', name: '开发资源', count: 0 },
+          { id: 'cat2', name: '设计资源', count: 0 },
+          { id: 'cat3', name: '办公资源', count: 0 },
+          { id: 'cat4', name: '营销资源', count: 0 },
+          { id: 'cat5', name: '教育资源', count: 0 }
+        ];
+      }
+    };
+
     const filterByCategory = (category) => {
-      activeCategory.value = category
-      currentPage.value = 1
-      fetchResources()
-    }
+      activeCategory.value = category;
+      currentPage.value = 1;
+      
+      // 更新URL，但不触发页面刷新
+      router.replace({
+        query: { 
+          ...route.query,
+          category: category || undefined 
+        }
+      });
+      
+      fetchResources();
+    };
 
     const searchResources = () => {
-      currentPage.value = 1
-      fetchResources()
-    }
+      currentPage.value = 1;
+      
+      // 更新URL，但不触发页面刷新
+      router.replace({
+        query: { 
+          ...route.query,
+          search: searchQuery.value || undefined 
+        }
+      });
+      
+      fetchResources();
+    };
 
     const changePage = (page) => {
-      if (page < 1 || page > totalPages.value) return
-      currentPage.value = page
-      fetchResources()
-    }
+      if (page < 1 || page > totalPages.value) return;
+      currentPage.value = page;
+      window.scrollTo(0, 0); // 回到顶部
+    };
 
     // 重置过滤条件
     const resetFilters = () => {
-      activeCategory.value = ''
-      searchQuery.value = ''
-      currentPage.value = 1
-      fetchResources()
-    }
+      activeCategory.value = '';
+      searchQuery.value = '';
+      currentPage.value = 1;
+      
+      // 清除URL查询参数
+      router.replace({ query: {} });
+      
+      fetchResources();
+    };
 
     // 重试加载资源
     const retryLoading = () => {
-      error.value = null
-      fetchResources()
-    }
+      error.value = null;
+      fetchResources();
+    };
 
     const fetchResources = async () => {
-      loading.value = true
-      error.value = null
+      loading.value = true;
+      error.value = null;
       
       try {
-        // 模拟网络延迟
-        await new Promise(resolve => setTimeout(resolve, 1500))
-        
-        // 模拟数据，实际项目中应该从API获取
-        // const response = await resourceApi.getResources(currentPage.value, activeCategory.value)
-        // resources.value = response.resources
-        // totalResources.value = response.total
-
-        // 生成更多测试数据，以展示虚拟列表性能
-        const mockResources = []
-        const categories = ['办公资源', '设计资源', '营销资源', '教育资源', '开发资源']
-        const baseImages = [
-          '3498db', '2ecc71', 'e74c3c', 'f39c12', '9b59b6', 
-          '34495e', '16a085', '2980b9', 'c0392b', 'd35400'
-        ]
-        
-        // 生成50条模拟数据
-        for (let i = 1; i <= 50; i++) {
-          const categoryIndex = (i % 5)
-          const imageIndex = (i % 10)
-          
-          mockResources.push({
-            id: i,
-            title: `资源标题 ${i}`,
-            description: `这是资源 ${i} 的详细描述，包含了该资源的主要特点和用途。`,
-            imageUrl: `https://via.placeholder.com/400x300/${baseImages[imageIndex]}/ffffff?text=资源${i}`,
-            category: categories[categoryIndex],
-            date: `2025-${Math.floor(i / 10) + 1}-${(i % 28) + 1}`
-          })
-        }
-        
-        // 筛选数据
-        let filteredData = [...mockResources]
+        // 构建查询参数
+        const params = {};
         
         if (activeCategory.value) {
-          filteredData = filteredData.filter(item => item.category === activeCategory.value)
+          params.category = activeCategory.value;
         }
         
         if (searchQuery.value) {
-          const query = searchQuery.value.toLowerCase()
-          filteredData = filteredData.filter(item => 
-            item.title.toLowerCase().includes(query) || 
-            item.description.toLowerCase().includes(query)
-          )
+          params.search = searchQuery.value;
         }
         
-        resources.value = filteredData
-        totalResources.value = filteredData.length
-        
-        // 随机模拟错误情况（概率为10%）
-        if (Math.random() < 0.1) {
-          throw new Error('网络请求失败，请检查您的连接并重试')
-        }
+        // 获取资源
+        resources.value = await resourceService.getResources(params);
+        totalResources.value = resources.value.length;
       } catch (err) {
-        console.error('获取资源列表失败:', err)
-        error.value = err.message || '加载资源失败，请稍后重试'
+        console.error('Failed to fetch resources:', err);
+        error.value = '加载资源时出错，请稍后重试。';
+        resources.value = [];
       } finally {
-        loading.value = false
+        loading.value = false;
       }
-    }
+    };
 
-    // 生命周期钩子
-    onMounted(() => {
-      // 检查URL中是否有搜索参数
-      if (route.query.search) {
-        searchQuery.value = route.query.search
-      }
-      fetchResources()
-    })
-
-    // 当搜索条件变化时，再次获取资源
-    watch([activeCategory, searchQuery], () => {
-      fetchResources()
-    })
+    onMounted(async () => {
+      await Promise.all([
+        fetchCategories(),
+        fetchResources()
+      ]);
+    });
 
     return {
       resources,
@@ -315,21 +314,18 @@ export default {
       activeCategory,
       searchQuery,
       currentPage,
-      pageSize,
-      totalResources,
-      filteredResources,
       totalPages,
       loading,
       error,
+      filteredResources,
       filterByCategory,
       searchResources,
       changePage,
-      fetchResources,
       resetFilters,
       retryLoading
-    }
+    };
   }
-}
+};
 </script>
 
 <style scoped>
