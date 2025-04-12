@@ -1,18 +1,14 @@
 import { Request } from 'express';
+import { JwtPayload as JwtPayloadBase } from 'jsonwebtoken';
 
-// JWT载荷类型
-export interface JwtPayload {
+// 扩展JWT载荷类型
+export interface JwtPayload extends JwtPayloadBase {
   email: string;
-  firebase_uid?: string;
+  firebase_uid: string;
   leancloud_uid?: string;
   role?: string;
   iat?: number;
   exp?: number;
-}
-
-// 扩展Express的Request类型，添加user属性
-export interface AuthRequest extends Request {
-  user?: JwtPayload;
 }
 
 // 认证错误类型

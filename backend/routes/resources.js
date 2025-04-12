@@ -1,5 +1,4 @@
 const express = require('express');
-const router = express.Router();
 const { 
   getResources, 
   getResourceById, 
@@ -10,23 +9,25 @@ const {
   rateResource,
   getFavorites,
   getUserResources
-} = require('../controllers/resourceController');
-const { protect } = require('../middlewares/auth');
+} = require('../controllers/resourceController.js');
+const { protect } = require('../middlewares/auth.js');
 const { 
   apiLimiter, 
   resourceCreationLimiter, 
   ratingFavoriteLimiter 
-} = require('../middleware/rateLimiter');
+} = require('../middleware/rateLimiter.js');
 const { 
   checkResourceOwnership,
   checkResourceStatus,
   checkUserRating
-} = require('../middleware/resourceOwnership');
+} = require('../middleware/resourceOwnership.js');
 const { 
   upload, 
   handleMulterError, 
   scanFileForThreats 
-} = require('../middleware/fileValidation');
+} = require('../middleware/fileValidation.js');
+
+const router = express.Router();
 
 // 应用基本API限速
 router.use(apiLimiter);

@@ -10,28 +10,28 @@
 
       <!-- 资源分类 - 使用MemoComponent避免不必要的重新渲染 -->
       <MemoComponent :dependencies="[activeCategory]">
-        <div class="row mb-4">
-          <div class="col-12">
-            <div class="category-tabs">
-              <ul class="nav nav-pills justify-content-center">
-                <li class="nav-item">
-                  <button class="nav-link"
-                    :class="{ active: activeCategory === '' }"
-                    @click="filterByCategory('')">
-                    全部资源
-                  </button>
-                </li>
-                <li class="nav-item" v-for="category in categories" :key="category.id">
-                  <button class="nav-link"
-                    :class="{ active: activeCategory === category.name }"
-                    @click="filterByCategory(category.name)">
-                    {{ category.name }}
-                  </button>
-                </li>
-              </ul>
-            </div>
+      <div class="row mb-4">
+        <div class="col-12">
+          <div class="category-tabs">
+            <ul class="nav nav-pills justify-content-center">
+              <li class="nav-item">
+                <button class="nav-link"
+                  :class="{ active: activeCategory === '' }"
+                  @click="filterByCategory('')">
+                  全部资源
+                </button>
+              </li>
+              <li class="nav-item" v-for="category in categories" :key="category.id">
+                <button class="nav-link"
+                  :class="{ active: activeCategory === category.name }"
+                  @click="filterByCategory(category.name)">
+                  {{ category.name }}
+                </button>
+              </li>
+            </ul>
           </div>
         </div>
+      </div>
       </MemoComponent>
 
       <!-- 搜索栏 -->
@@ -80,7 +80,7 @@
             v-slot="{ item }"
           >
             <div class="card h-100 mb-4">
-              <div class="card-img-container">
+            <div class="card-img-container">
                 <LazyImage 
                   :src="item.imageUrl" 
                   :alt="item.title"
@@ -90,11 +90,11 @@
                   class="card-img-top"
                 />
                 <span class="category-badge">{{ item.category }}</span>
-              </div>
-              <div class="card-body">
+            </div>
+            <div class="card-body">
                 <h5 class="card-title">{{ item.title }}</h5>
                 <p class="card-text">{{ item.description }}</p>
-                <div class="d-flex justify-content-between align-items-center">
+              <div class="d-flex justify-content-between align-items-center">
                   <span class="text-muted">{{ item.date }}</span>
                   <router-link :to="'/resource-market/' + item.id" class="btn btn-sm btn-primary">查看详情</router-link>
                 </div>
@@ -106,23 +106,23 @@
 
       <!-- 分页 - 使用MemoComponent避免不必要的重新渲染 -->
       <MemoComponent :dependencies="[currentPage, totalPages]">
-        <div class="row mt-4">
-          <div class="col-12">
-            <nav aria-label="Page navigation">
-              <ul class="pagination justify-content-center">
-                <li class="page-item" :class="{ disabled: currentPage === 1 }">
-                  <a class="page-link" href="#" @click.prevent="changePage(currentPage - 1)">上一页</a>
-                </li>
-                <li class="page-item" v-for="page in totalPages" :key="page" :class="{ active: currentPage === page }">
-                  <a class="page-link" href="#" @click.prevent="changePage(page)">{{ page }}</a>
-                </li>
-                <li class="page-item" :class="{ disabled: currentPage === totalPages }">
-                  <a class="page-link" href="#" @click.prevent="changePage(currentPage + 1)">下一页</a>
-                </li>
-              </ul>
-            </nav>
-          </div>
+      <div class="row mt-4">
+        <div class="col-12">
+          <nav aria-label="Page navigation">
+            <ul class="pagination justify-content-center">
+              <li class="page-item" :class="{ disabled: currentPage === 1 }">
+                <a class="page-link" href="#" @click.prevent="changePage(currentPage - 1)">上一页</a>
+              </li>
+              <li class="page-item" v-for="page in totalPages" :key="page" :class="{ active: currentPage === page }">
+                <a class="page-link" href="#" @click.prevent="changePage(page)">{{ page }}</a>
+              </li>
+              <li class="page-item" :class="{ disabled: currentPage === totalPages }">
+                <a class="page-link" href="#" @click.prevent="changePage(currentPage + 1)">下一页</a>
+              </li>
+            </ul>
+          </nav>
         </div>
+      </div>
       </MemoComponent>
     </div>
   </div>

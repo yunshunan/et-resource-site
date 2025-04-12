@@ -71,9 +71,9 @@
         <div class="d-flex justify-content-between align-items-center mb-4">
           <h2 class="section-heading mb-0">最新上传资源</h2>
           <router-link to="/resource-market" class="btn btn-primary">查看全部</router-link>
-        </div>
-        
-        <div class="row">
+    </div>
+
+      <div class="row">
           <div v-for="i in 3" :key="i" class="col-md-4 mb-4">
             <div class="card h-100 resource-card">
               <div class="card-img-container">
@@ -86,7 +86,7 @@
                 />
                 <span class="badge bg-primary position-absolute top-0 end-0 m-2">热门</span>
               </div>
-              <div class="card-body">
+            <div class="card-body">
                 <h5 class="card-title">示例资源标题 {{ i }}</h5>
                 <p class="card-text">这是一个示例资源描述，展示了资源的基本信息和用途。</p>
                 <div class="d-flex justify-content-between align-items-center">

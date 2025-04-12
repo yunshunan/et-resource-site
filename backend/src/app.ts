@@ -2,8 +2,19 @@ import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import morgan from 'morgan';
+import rateLimit from 'express-rate-limit';
 import authRoutes from './routes/auth';
+import userRoutes from './routes/user';
+import resourceRoutes from './routes/resource';
 import { initLeanCloud } from './libs/leancloud';
+import { dingTalkBot } from './config/dingtalkAlert';
+
+// 扩展错误接口
+interface AppError extends Error {
+  statusCode?: number;
+  code?: number;
+  type?: string;
+}
 
 // 加载环境变量
 dotenv.config();
@@ -19,14 +30,28 @@ try {
 // 创建Express应用
 const app = express();
 
-// 中间件
+// 配置速率限制器
+const authLimiter = rateLimit({
+	windowMs: 15 * 60 * 1000, // 15 分钟
+	max: 100, // 每个窗口每个 IP 最多 100 次请求
+	standardHeaders: true, // 返回 RateLimit-* 头信息
+	legacyHeaders: false, // 禁用 X-RateLimit-* 头信息
+  message: { code: 429, message: '请求过于频繁，请稍后再试' },
+});
+
+// 应用基本中间件
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
 
+// 将速率限制器应用到认证路由
+app.use('/api/auth', authLimiter);
+
 // 路由
 app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/resources', resourceRoutes);
 
 // 健康检查接口
 app.get('/api/health', (req, res) => {
@@ -39,11 +64,24 @@ app.get('/api/health', (req, res) => {
 });
 
 // 全局错误处理
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+app.use(async (err: AppError, req: Request, res: Response, next: NextFunction) => {
   console.error('服务器错误:', err);
   
-  res.status(500).json({
-    code: 500,
+  // 只对 500 级别的错误进行钉钉报警
+  const statusCode = err.statusCode || 500;
+  if (statusCode >= 500 && dingTalkBot) {
+    try {
+      // 异步发送钉钉报警，不阻塞响应
+      dingTalkBot.sendErrorAlert(err, req).catch(alertError => {
+        console.error('发送钉钉报警失败:', alertError);
+      });
+    } catch (alertError) {
+      console.error('发送钉钉报警过程中出错:', alertError);
+    }
+  }
+  
+  res.status(statusCode).json({
+    code: statusCode,
     message: process.env.NODE_ENV === 'production' 
       ? '服务器内部错误' 
       : err.message || '未知错误'

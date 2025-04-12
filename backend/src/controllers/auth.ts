@@ -300,38 +300,37 @@ export const verifyLeanCloudToken: AsyncRequestHandler = async (req, res) => {
  */
 export const leanCloudRegister: AsyncRequestHandler = async (req, res) => {
   try {
-    const { email, password, username } = req.body;
+    const { email, password } = req.body as RegisterRequest;
 
-    // 输入验证
     if (!email || !password) {
       throw new AuthError('邮箱和密码不能为空', AuthErrorType.INVALID_CREDENTIALS, 400);
     }
-
-    // 密码长度验证
     if (password.length < 6) {
       throw new AuthError('密码长度不能少于6个字符', AuthErrorType.WEAK_PASSWORD, 400);
     }
 
-    // 创建LeanCloud用户
     const user = new AV.User();
-    user.setUsername(username || email);
-    user.setPassword(password);
+    user.setUsername(email);
     user.setEmail(email);
-    
-    // 设置默认角色
-    user.set('role', 'user');
-    
-    // 注册用户
-    await user.signUp();
-    
+    user.setPassword(password);
+    // 注册时默认设置 role 为 'user'
+    user.set('role', 'user'); 
+
+    // 尝试注册用户
+    const leanUser = await user.signUp();
+    console.log('LeanCloud 用户注册成功', leanUser.id);
+
     // 生成JWT令牌
     const jwtSecret = process.env.JWT_SECRET;
     if (!jwtSecret) {
       throw new Error('JWT_SECRET环境变量未设置');
     }
 
+    // 从注册后的用户对象获取角色
+    const userRole = leanUser.get('role') || 'user';
+
     const token = await signToken(
-      { email, leancloud_uid: user.id },
+      { email, leancloud_uid: leanUser.id, role: userRole }, // <-- 添加 role
       jwtSecret,
       { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
     );
@@ -339,11 +338,11 @@ export const leanCloudRegister: AsyncRequestHandler = async (req, res) => {
     // 返回用户信息和令牌
     return res.status(201).json({
       user: {
-        id: user.id,
-        email: user.get('email'),
-        username: user.get('username'),
-        role: user.get('role') || 'user',
-        createdAt: user.createdAt
+        id: leanUser.id,
+        email,
+        username: leanUser.getUsername(),
+        role: userRole, // 在响应中也返回角色
+        createdAt: leanUser.createdAt?.toISOString()
       },
       token
     });
@@ -358,42 +357,27 @@ export const leanCloudRegister: AsyncRequestHandler = async (req, res) => {
  */
 export const leanCloudLogin: AsyncRequestHandler = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password } = req.body as LoginRequest;
 
-    // 输入验证
     if (!email || !password) {
       throw new AuthError('邮箱和密码不能为空', AuthErrorType.INVALID_CREDENTIALS, 400);
     }
 
-    // 使用LeanCloud进行登录验证
-    // 注意：LeanCloud默认使用用户名登录，我们需要先根据email查找用户名
-    let user;
-    
-    try {
-      // 尝试直接使用email作为用户名登录
-      user = await AV.User.logIn(email, password);
-    } catch (e) {
-      // 如果失败，尝试查询email对应的用户，然后使用用户名登录
-      const query = new AV.Query('_User');
-      query.equalTo('email', email);
-      const userObj = await query.first();
-      
-      if (!userObj) {
-        throw new AuthError('用户不存在', AuthErrorType.USER_NOT_FOUND, 404);
-      }
-      
-      // 使用用户名和密码登录
-      user = await AV.User.logIn(userObj.get('username'), password);
-    }
-    
+    // 使用邮箱和密码登录
+    const user = await AV.User.logIn(email, password);
+    console.log('LeanCloud 用户登录成功', user.id);
+
     // 生成JWT令牌
     const jwtSecret = process.env.JWT_SECRET;
     if (!jwtSecret) {
       throw new Error('JWT_SECRET环境变量未设置');
     }
 
+    // 从登录后的用户对象获取角色
+    const userRole = user.get('role') || 'user';
+
     const token = await signToken(
-      { email: user.get('email'), leancloud_uid: user.id },
+      { email, leancloud_uid: user.id, role: userRole }, // <-- 添加 role
       jwtSecret,
       { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
     );
@@ -402,11 +386,10 @@ export const leanCloudLogin: AsyncRequestHandler = async (req, res) => {
     return res.status(200).json({
       user: {
         id: user.id,
-        email: user.get('email'),
-        username: user.get('username'),
-        role: user.get('role') || 'user',
-        avatar: user.get('avatar'),
-        createdAt: user.createdAt
+        email,
+        username: user.getUsername(),
+        role: userRole, // 在响应中也返回角色
+        createdAt: user.createdAt?.toISOString()
       },
       token
     });

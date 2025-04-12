@@ -363,4 +363,40 @@ exports.getFavorites = async (req, res) => {
       message: '服务器错误，无法获取收藏列表'
     });
   }
+};
+
+// @desc    获取用户创建的所有资源
+// @route   GET /api/resources/user
+// @access  Private
+exports.getUserResources = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 9;
+    const startIndex = (page - 1) * limit;
+    
+    // 查找用户创建的资源
+    const resources = await Resource.find({ user: req.user.id })
+      .sort({ createdAt: -1 })
+      .skip(startIndex)
+      .limit(limit);
+    
+    const total = await Resource.countDocuments({ user: req.user.id });
+    
+    res.status(200).json({
+      success: true,
+      count: resources.length,
+      total,
+      data: resources,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    logger.error(`获取用户资源列表失败: ${error.message}`);
+    res.status(500).json({
+      success: false,
+      message: '服务器错误，无法获取用户资源列表'
+    });
+  }
 }; 
