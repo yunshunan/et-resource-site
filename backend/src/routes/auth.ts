@@ -2,12 +2,15 @@ import { Router } from 'express';
 import { 
   register, 
   login, 
-  verifyFirebaseToken, 
   verifyLeanCloudToken,
   leanCloudLogin,
-  leanCloudRegister
+  leanCloudRegister,
+  getMe
 } from '../controllers/auth';
 import { asyncHandler } from '../middlewares/asyncHandler';
+import { authenticate } from '../middleware/authenticate';
+
+console.log('>>> [routes/auth.ts] Module start');
 
 const router = Router();
 
@@ -75,33 +78,6 @@ router.post('/register', asyncHandler(register));
  *         description: 用户不存在
  */
 router.post('/login', asyncHandler(login));
-
-/**
- * @swagger
- * /api/auth/verify-token:
- *   post:
- *     summary: 验证Firebase ID令牌
- *     description: 验证Firebase ID令牌并返回JWT令牌
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - idToken
- *             properties:
- *               idToken:
- *                 type: string
- *     responses:
- *       200:
- *         description: 验证成功
- *       400:
- *         description: 无效的输入
- *       401:
- *         description: 令牌无效
- */
-router.post('/verify-token', asyncHandler(verifyFirebaseToken));
 
 /**
  * @swagger
@@ -197,4 +173,23 @@ router.post('/leancloud-register', asyncHandler(leanCloudRegister));
  */
 router.post('/leancloud-login', asyncHandler(leanCloudLogin));
 
-export default router; 
+/**
+ * @swagger
+ * /api/auth/me:
+ *   get:
+ *     summary: 获取当前用户信息
+ *     description: 验证JWT令牌并返回当前登录用户的信息
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: 成功获取用户信息
+ *       401:
+ *         description: 未授权 (令牌无效或缺失)
+ *       404:
+ *         description: 找不到用户信息
+ */
+router.get('/me', authenticate, asyncHandler(getMe as any));
+
+export default router;
+console.log('>>> [routes/auth.ts] Module end, exporting router'); 

@@ -56,7 +56,7 @@
                 <li><router-link class="dropdown-item" to="/user-resources"><i class="bi bi-file-earmark me-2"></i>我的资源</router-link></li>
                 <li><router-link class="dropdown-item" to="/user-favorites"><i class="bi bi-heart me-2"></i>我的收藏</router-link></li>
                 <li><hr class="dropdown-divider"></li>
-                <li><a class="dropdown-item" href="#" @click.prevent="logout"><i class="bi bi-box-arrow-right me-2"></i>退出登录</a></li>
+                <li><a class="dropdown-item" href="#" @click.prevent="handleLogout"><i class="bi bi-box-arrow-right me-2"></i>退出登录</a></li>
               </ul>
             </div>
           </template>
@@ -72,25 +72,31 @@
 </template>
 
 <script>
+import { mapState, mapActions } from 'pinia';
+import { useAuthStore } from '@/stores/auth';
+
 export default {
   name: 'Navigation',
   data() {
     return {
-      isLoggedIn: false,
-      userName: '用户',
       searchQuery: ''
     }
   },
+  computed: {
+    ...mapState(useAuthStore, ['isLoggedIn', 'currentUser']),
+    userName() {
+      return this.currentUser?.username || this.currentUser?.email || '用户';
+    }
+  },
   methods: {
-    logout() {
-      // 实际项目中这里应该调用注销API
-      this.isLoggedIn = false;
-      localStorage.removeItem('userInfo');
-      this.$router.push('/');
-      alert('已退出登录');
+    ...mapActions(useAuthStore, { storeLogout: 'logout' }),
+    async handleLogout() {
+      await this.storeLogout();
+      if (this.$route.path !== '/') {
+          this.$router.push('/');
+      }
     },
     initDropdowns() {
-      // 确保Bootstrap下拉菜单正常工作
       if (window.bootstrap && window.bootstrap.Dropdown) {
         document.querySelectorAll('.dropdown-toggle').forEach(dropdownToggle => {
           new window.bootstrap.Dropdown(dropdownToggle);
@@ -99,7 +105,6 @@ export default {
     },
     handleSearch() {
       if (this.searchQuery.trim()) {
-        // 导航到资源市场页面并附带搜索参数
         this.$router.push({
           path: '/resource-market',
           query: { search: this.searchQuery }
@@ -108,26 +113,11 @@ export default {
     }
   },
   mounted() {
-    // 实际项目中应该从状态管理库中获取登录状态
-    // 这里简单模拟一下
-    const userInfo = localStorage.getItem('userInfo');
-    if (userInfo) {
-      try {
-        const parsed = JSON.parse(userInfo);
-        this.isLoggedIn = true;
-        this.userName = parsed.name || '用户';
-      } catch (e) {
-        console.error('解析用户信息失败', e);
-      }
-    }
-    
-    // 初始化下拉菜单
     this.$nextTick(() => {
       this.initDropdowns();
     });
   },
   updated() {
-    // 当组件更新时，重新初始化下拉菜单
     this.$nextTick(() => {
       this.initDropdowns();
     });

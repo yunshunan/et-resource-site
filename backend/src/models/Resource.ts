@@ -8,6 +8,8 @@ export interface IResource extends Document {
   imageUrl?: string;
   category: string;
   tags?: string[];
+  fileSize?: string;
+  fileType?: string;
   ratingSum?: number; // 评分总和
   ratingCount: number;
   uploader: string; // 存储 LeanCloud User ObjectId (字符串)
@@ -25,6 +27,8 @@ const ResourceSchema: Schema = new Schema(
     imageUrl: { type: String, trim: true },
     category: { type: String, required: true, trim: true },
     tags: [{ type: String, trim: true }],
+    fileSize: { type: String },
+    fileType: { type: String },
     ratingSum: { type: Number, default: 0, min: 0 }, // 评分总和
     ratingCount: { type: Number, default: 0, min: 0 },
     // 直接存储 LeanCloud _User 表的 objectId (字符串类型)

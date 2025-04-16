@@ -65,7 +65,7 @@
 </template>
 
 <script>
-import { ref } from 'vue'
+import { ref, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { Modal } from 'bootstrap'
 import ResourceUploadForm from '@/components/ResourceUploadForm.vue'
@@ -99,9 +99,24 @@ export default {
     }
     
     // 跳转到资源详情页
-    const goToResource = () => {
-      if (uploadedResource.value && uploadedResource.value._id) {
-        router.push(`/resources/${uploadedResource.value._id}`)
+    const goToResource = async () => {
+      if (uploadedResource.value && uploadedResource.value.id) {
+        const resourceId = uploadedResource.value.id;
+        
+        // 等待 DOM 更新完成
+        await nextTick();
+        
+        // 添加延迟，让过渡有时间完成
+        console.log('Preparing to navigate to resource details:', resourceId);
+        
+        // 使用 setTimeout 稍微延迟导航，让 modal 有时间关闭
+        setTimeout(() => {
+          console.log('Navigating to resource details:', resourceId);
+          router.push(`/resource-market/${resourceId}`);
+        }, 300);
+      } else {
+        console.error('无法跳转：上传的资源信息不完整或缺少 ID。', uploadedResource.value);
+        // Optionally show an error message to the user
       }
     }
     

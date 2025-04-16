@@ -1,245 +1,160 @@
 import { Request, Response } from 'express';
 import { AsyncRequestHandler } from '../types/express';
-import firebase from '../libs/firebase';
 import { AV } from '../libs/leancloud';
-import { RegisterRequest, LoginRequest, AuthError, AuthErrorType } from '../types/auth';
+import { RegisterRequest, LoginRequest, AuthError, AuthErrorType, UserResponse } from '../types/auth';
 import { handleAuthError } from '../utils/errorHandler';
 import { signToken } from '../libs/jwt';
+import { AuthRequest } from '../types/auth';
+
+console.log('>>> [controllers/auth.ts] Module start'); // <-- 日志 1: 文件开始
 
 /**
- * 用户注册
+ * 用户注册 (使用 LeanCloud)
  * @route POST /api/auth/register
  */
 export const register: AsyncRequestHandler = async (req, res) => {
   try {
-    const { email, password } = req.body as RegisterRequest;
+    const { email, password, username } = req.body as RegisterRequest; // Assuming username might be needed
 
-    // 输入验证
+    // --- Basic Input Validation ---
     if (!email || !password) {
       throw new AuthError('邮箱和密码不能为空', AuthErrorType.INVALID_CREDENTIALS, 400);
     }
-
-    // 密码长度验证
     if (password.length < 6) {
       throw new AuthError('密码长度不能少于6个字符', AuthErrorType.WEAK_PASSWORD, 400);
     }
-
-    // 使用Firebase Auth创建用户
-    const userRecord = await firebase.auth().createUser({
-      email,
-      password,
-      emailVerified: false
-    });
-
-    console.log('Firebase用户创建成功:', userRecord.uid);
-
-    // 在LeanCloud中查找是否已存在此用户
-    const query = new AV.Query('_User');
-    query.equalTo('firebase_uid', userRecord.uid);
-    let leanUser = await query.first();
-
-    if (!leanUser) {
-      // 如果不存在，创建新用户
-      leanUser = new AV.Object('_User');
+    // Add username validation if required
+    if (!username) {
+        throw new AuthError('用户名不能为空', AuthErrorType.INVALID_CREDENTIALS, 400);
     }
 
-    // 设置用户属性
-    leanUser.set('email', email);
-    leanUser.set('firebase_uid', userRecord.uid);
-    leanUser.set('wechat_openid', null); // 预留字段，默认为null
+    // --- Use LeanCloud to Create User ---
+    const user = new AV.User();
+    user.setUsername(username); // Use username for LeanCloud username
+    user.setEmail(email);
+    user.setPassword(password);
 
-    // 保存到LeanCloud
-    await leanUser.save();
-    
-    // 设置ACL，只允许用户自己写入
-    const acl = new AV.ACL();
-    acl.setPublicReadAccess(true);
-    
-    // 只有在用户ID有效时才设置写权限
-    if (leanUser.id) {
-      acl.setWriteAccess(leanUser.id, true);
-      leanUser.setACL(acl);
-      await leanUser.save();
-    }
-    
-    console.log('LeanCloud用户创建/更新成功');
+    // Attempt to sign up the user in LeanCloud
+    await user.signUp();
 
-    // 生成JWT令牌
+    console.log('LeanCloud用户创建成功:', user.id); // user.id is the objectId
+
+    // --- Generate JWT Token with LeanCloud User Info ---
     const jwtSecret = process.env.JWT_SECRET;
     if (!jwtSecret) {
-      throw new Error('JWT_SECRET环境变量未设置');
+      // Log error on server, send generic message to client
+      console.error('JWT_SECRET环境变量未设置');
+      throw new Error('服务器内部错误'); 
     }
 
+    // Agreed payload structure: { userId: string; email: string; }
+    const payload = {
+      userId: user.id, // Use LeanCloud objectId as userId
+      email: user.getEmail(), // Get email from the created user object
+    };
+
     const token = await signToken(
-      { email, firebase_uid: userRecord.uid },
+      payload,
       jwtSecret,
       { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
     );
 
-    // 返回用户信息和令牌
-    return res.status(201).json({
+    // --- Return User Info and Token ---
+    // Exclude sensitive info like password from the response
+    res.status(201).json({
       user: {
-        email,
-        firebase_uid: userRecord.uid
+        userId: user.id, // LeanCloud objectId
+        email: user.getEmail(),
+        username: user.getUsername(),
       },
       token
     });
-  } catch (error) {
-    return handleAuthError(error, res);
+
+  } catch (error: any) {
+    // --- LeanCloud Error Handling ---
+    // Check for specific LeanCloud error codes (e.g., username/email already exists)
+    if (error.code === 202) { // Username has already been taken
+         handleAuthError(new AuthError('用户名已被占用', AuthErrorType.USERNAME_TAKEN, 409), res);
+    } else if (error.code === 203) { // Email has already been taken
+        handleAuthError(new AuthError('邮箱已被注册', AuthErrorType.EMAIL_TAKEN, 409), res);
+    } else if (error.code === 217) { // Invalid username. It should only contain alphanumeric characters, underscores, and dashes.
+        handleAuthError(new AuthError('用户名格式无效（只能包含字母、数字、下划线和破折号）', AuthErrorType.INVALID_USERNAME, 400), res);
+    } else if (error.code === 218) { // Invalid password. It should contain 6 to 32 characters.
+        // We already check length, but LeanCloud might have other rules
+         handleAuthError(new AuthError('密码格式无效', AuthErrorType.WEAK_PASSWORD, 400), res);
+    } else {
+      // Handle other potential errors (like network issues, our custom AuthErrors)
+      handleAuthError(error, res);
+    }
   }
 };
 
 /**
- * 用户登录
+ * 用户登录 (使用 LeanCloud)
  * @route POST /api/auth/login
  */
 export const login: AsyncRequestHandler = async (req, res) => {
   try {
     const { email, password } = req.body as LoginRequest;
 
-    // 输入验证
+    // --- Basic Input Validation ---
     if (!email || !password) {
-      throw new AuthError('邮箱和密码不能为空', AuthErrorType.INVALID_CREDENTIALS, 400);
+      throw new AuthError('邮箱或密码不能为空', AuthErrorType.INVALID_CREDENTIALS, 400);
     }
 
-    // 使用Firebase验证用户凭证
-    // 注意：Firebase Admin SDK没有直接验证邮箱/密码的方法
-    // 这里采用的方案是先通过邮箱查找用户，然后使用Firebase Auth REST API验证
+    // --- Use LeanCloud to Log In User ---
+    // LeanCloud supports login with username or email
+    const user = await AV.User.logIn(email, password);
 
-    // 1. 通过邮箱查找Firebase用户
-    const firebaseUser = await firebase.auth().getUserByEmail(email)
-      .catch(error => {
-        if (error.code === 'auth/user-not-found') {
-          throw new AuthError('用户不存在', AuthErrorType.USER_NOT_FOUND, 404);
-        }
-        throw error;
-      });
+    console.log('LeanCloud用户登录成功:', user.id);
 
-    // 2. 使用自定义令牌验证方法
-    // 注：实际情况下，前端应直接使用Firebase SDK进行身份验证，后端只需验证ID令牌
-    // 这里为了保持API一致性，模拟验证过程
-
-    // 验证通过后，查询LeanCloud中的用户记录
-    const query = new AV.Query('_User');
-    query.equalTo('firebase_uid', firebaseUser.uid);
-    const leanUser = await query.first();
-
-    if (!leanUser) {
-      // 如果LeanCloud中不存在此用户，创建一个
-      const newUser = new AV.Object('_User');
-      newUser.set('email', email);
-      newUser.set('firebase_uid', firebaseUser.uid);
-      newUser.set('wechat_openid', null);
-      
-      // 保存用户
-      await newUser.save();
-      
-      // 设置ACL
-      const acl = new AV.ACL();
-      acl.setPublicReadAccess(true);
-      
-      // 只有在用户ID有效时才设置写权限
-      if (newUser.id) {
-        acl.setWriteAccess(newUser.id, true);
-        newUser.setACL(acl);
-        await newUser.save();
-      }
-      
-      console.log('LeanCloud用户创建成功');
-    }
-
-    // 生成JWT令牌
+    // --- Generate JWT Token ---
     const jwtSecret = process.env.JWT_SECRET;
+    console.log(`[Login] JWT_SECRET used: ${jwtSecret?.substring(0, 5)}...`); // Log the secret used for signing
     if (!jwtSecret) {
-      throw new Error('JWT_SECRET环境变量未设置');
+      console.error('JWT_SECRET环境变量未设置');
+      throw new Error('服务器内部错误');
     }
+
+    // Agreed payload structure: { userId: string; email: string; }
+    const payload = {
+      userId: user.id, // CRITICAL: Ensure key is userId, value is LeanCloud user.id
+      email: user.getEmail(),
+    };
+    console.log('[Login] Generating JWT with payload:', payload); // Log the payload structure
 
     const token = await signToken(
-      { email, firebase_uid: firebaseUser.uid },
+      payload, // Ensure this correct payload is passed
       jwtSecret,
       { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
     );
 
-    // 返回用户信息和令牌
-    return res.status(200).json({
+    // --- Return User Info and Token ---
+    // Ensure the returned user object uses userId consistently
+    res.status(200).json({
       user: {
-        email,
-        firebase_uid: firebaseUser.uid
+        userId: user.id, // Use userId here for consistency
+        email: user.getEmail(),
+        username: user.getUsername(),
+        // role: user.get('role'),
+        // avatar: user.get('avatar')?.url(),
       },
       token
     });
-  } catch (error) {
-    return handleAuthError(error, res);
-  }
-};
 
-/**
- * 验证Firebase ID令牌
- * @route POST /api/auth/verify-token
- */
-export const verifyFirebaseToken: AsyncRequestHandler = async (req, res) => {
-  try {
-    const { idToken } = req.body;
-
-    if (!idToken) {
-      throw new AuthError('ID令牌不能为空', AuthErrorType.INVALID_CREDENTIALS, 400);
+  } catch (error: any) {
+    // --- LeanCloud Error Handling ---
+    // Specific LeanCloud login errors
+    if (error.code === 210) { // Invalid username/password combination
+      handleAuthError(new AuthError('邮箱或密码错误', AuthErrorType.INVALID_CREDENTIALS, 401), res);
+    } else if (error.code === 211) { // Could not find user
+      // This might overlap with 210, but handle explicitly if needed
+      handleAuthError(new AuthError('用户不存在', AuthErrorType.USER_NOT_FOUND, 404), res);
+    } else if (error.code === 219) { // Login failed too many times, please try again later
+      handleAuthError(new AuthError('登录尝试次数过多，请稍后再试', AuthErrorType.TOO_MANY_ATTEMPTS, 429), res); // Need to add TOO_MANY_ATTEMPTS to enum
     }
-
-    // 验证Firebase ID令牌
-    const decodedToken = await firebase.auth().verifyIdToken(idToken);
-    const { email, uid } = decodedToken;
-
-    // 查询LeanCloud中的用户记录
-    const query = new AV.Query('_User');
-    query.equalTo('firebase_uid', uid);
-    let leanUser = await query.first();
-
-    if (!leanUser) {
-      // 如果用户不存在，创建新用户
-      leanUser = new AV.Object('_User');
-      leanUser.set('email', email);
-      leanUser.set('firebase_uid', uid);
-      leanUser.set('wechat_openid', null);
-      
-      // 保存用户
-      await leanUser.save();
-      
-      // 设置ACL
-      const acl = new AV.ACL();
-      acl.setPublicReadAccess(true);
-      
-      // 只有在用户ID有效时才设置写权限
-      if (leanUser.id) {
-        acl.setWriteAccess(leanUser.id, true);
-        leanUser.setACL(acl);
-        await leanUser.save();
-      }
-      
-      console.log('LeanCloud用户创建成功');
-    }
-
-    // 生成JWT令牌
-    const jwtSecret = process.env.JWT_SECRET;
-    if (!jwtSecret) {
-      throw new Error('JWT_SECRET环境变量未设置');
-    }
-
-    const token = await signToken(
-      { email, firebase_uid: uid },
-      jwtSecret,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
-    );
-
-    // 返回用户信息和令牌
-    return res.status(200).json({
-      user: {
-        email,
-        firebase_uid: uid
-      },
-      token
-    });
-  } catch (error) {
-    return handleAuthError(error, res);
+    // Handle other potential errors
+    handleAuthError(error, res);
   }
 };
 
@@ -247,16 +162,21 @@ export const verifyFirebaseToken: AsyncRequestHandler = async (req, res) => {
  * 验证LeanCloud Session Token
  * @route POST /api/auth/verify-leancloud-token
  */
+console.log('>>> [controllers/auth.ts] Defining verifyLeanCloudToken...'); // <-- 日志 2: 定义函数前
 export const verifyLeanCloudToken: AsyncRequestHandler = async (req, res) => {
+  console.log('>>> [controllers/auth.ts] verifyLeanCloudToken handler ENTERED'); // <-- 日志 3: 函数入口
   try {
     const { sessionToken } = req.body;
+    console.log('>>> [controllers/auth.ts] verifyLeanCloudToken - Received sessionToken:', sessionToken ? '***' : 'null/undefined'); // 日志4：收到 Token
 
     if (!sessionToken) {
       throw new AuthError('Session令牌不能为空', AuthErrorType.INVALID_CREDENTIALS, 400);
     }
 
     // 使用LeanCloud验证会话令牌
+    console.log('>>> [controllers/auth.ts] verifyLeanCloudToken - Calling AV.User.become...'); // 日志5：调用 become
     const user = await AV.User.become(sessionToken);
+    console.log('>>> [controllers/auth.ts] verifyLeanCloudToken - AV.User.become returned:', user ? `User ID: ${user.id}` : 'null'); // 日志6：become 结果
     
     if (!user) {
       throw new AuthError('无效的会话令牌', AuthErrorType.INVALID_TOKEN, 401);
@@ -271,26 +191,36 @@ export const verifyLeanCloudToken: AsyncRequestHandler = async (req, res) => {
       throw new Error('JWT_SECRET环境变量未设置');
     }
 
+    // CRITICAL FIX: Generate JWT payload with 'userId' key
+    const payload = {
+      userId: leanCloudUserId, // Use userId as the key
+      email, // email is already defined above
+      // role: user.get('role') || 'user' // Optionally add role here too
+    };
+    console.log('[verifyLeanCloudToken] Generating JWT with payload:', payload);
+
     const token = await signToken(
-      { email, leancloud_uid: leanCloudUserId },
+      payload, // Pass the corrected payload
       jwtSecret,
       { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
     );
 
     // 返回用户信息和令牌
-    return res.status(200).json({
+    // CRITICAL FIX: Return user object with 'userId' key for consistency
+    res.status(200).json({
       user: {
-        id: leanCloudUserId,
+        userId: leanCloudUserId, // Use userId here
         email,
         username: user.get('username'),
         role: user.get('role') || 'user',
-        avatar: user.get('avatar'),
-        createdAt: user.createdAt
+        avatar: user.get('avatar')?.url(), // Corrected avatar fetching
+        createdAt: user.createdAt?.toISOString() // Use ISO string
       },
-      token
+      token // The token now contains userId
     });
   } catch (error) {
-    return handleAuthError(error, res);
+    console.error('>>> [controllers/auth.ts] verifyLeanCloudToken - ERROR caught:', error); // 日志7：捕获错误
+    handleAuthError(error, res);
   }
 };
 
@@ -336,7 +266,7 @@ export const leanCloudRegister: AsyncRequestHandler = async (req, res) => {
     );
 
     // 返回用户信息和令牌
-    return res.status(201).json({
+    res.status(201).json({
       user: {
         id: leanUser.id,
         email,
@@ -347,7 +277,7 @@ export const leanCloudRegister: AsyncRequestHandler = async (req, res) => {
       token
     });
   } catch (error) {
-    return handleAuthError(error, res);
+    handleAuthError(error, res);
   }
 };
 
@@ -383,7 +313,7 @@ export const leanCloudLogin: AsyncRequestHandler = async (req, res) => {
     );
 
     // 返回用户信息和令牌
-    return res.status(200).json({
+    res.status(200).json({
       user: {
         id: user.id,
         email,
@@ -394,6 +324,60 @@ export const leanCloudLogin: AsyncRequestHandler = async (req, res) => {
       token
     });
   } catch (error) {
-    return handleAuthError(error, res);
+    handleAuthError(error, res);
+  }
+};
+
+/**
+ * 获取当前登录用户的信息
+ * @route GET /api/auth/me
+ * @access Private (需要认证)
+ */
+export const getMe: AsyncRequestHandler<AuthRequest> = async (req, res) => {
+  // authenticate 中间件已将解码后的用户信息附加到 req.user
+  // req.user 的结构应与 JWT Payload 一致 (例如 { userId: string; email: string; role?: string; ... })
+  const jwtPayload = req.user;
+
+  if (!jwtPayload || !jwtPayload.userId) {
+    // 理论上不应该发生，因为 authenticate 会处理
+    res.status(401).json({ success: false, message: '无效的认证信息' });
+    return; // Still need to return to exit the function
+  }
+
+  try {
+    // 根据 JWT 中的 userId (LeanCloud ObjectId) 查询最新的用户信息
+    const userQuery = new AV.Query('_User');
+    // Fetch the full user object to ensure methods are available
+    const leancloudUser = await userQuery.get(jwtPayload.userId);
+
+    if (!leancloudUser) {
+      // 用户在 LeanCloud 中被删除？
+      throw new AuthError('无法找到用户信息', AuthErrorType.USER_NOT_FOUND, 404);
+    }
+
+    // Explicitly cast to AV.User to access methods
+    const lcUser = leancloudUser as AV.User;
+
+    // 构建要返回的用户信息对象
+    const userInfo: UserResponse = {
+      userId: lcUser.id!, // Assert that id is non-null
+      email: lcUser.getEmail(), // Use type assertion
+      username: lcUser.getUsername(), // Use type assertion
+      role: lcUser.get('role') || 'user', // 从 LeanCloud 获取最新角色
+      avatar: lcUser.get('avatar')?.url(), // 获取头像 URL
+      createdAt: lcUser.createdAt?.toISOString(),
+      // 可以添加其他需要返回的字段
+    };
+
+    res.status(200).json({ success: true, user: userInfo });
+
+  } catch (error: any) {
+    // 处理 LeanCloud 查询错误或其他错误
+    console.error('获取用户信息失败:', error);
+    if (error.code === 101) { // Object not found.
+       handleAuthError(new AuthError('无法找到用户信息', AuthErrorType.USER_NOT_FOUND, 404), res);
+    } else {
+       handleAuthError(error, res);
+    }
   }
 }; 

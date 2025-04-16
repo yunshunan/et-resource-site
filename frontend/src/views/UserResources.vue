@@ -7,7 +7,7 @@
             <h2 class="mb-1">我的资源</h2>
             <p class="text-muted">管理您上传的资源</p>
           </div>
-          <router-link to="/resources/upload" class="btn btn-primary">
+          <router-link to="/resource-upload" class="btn btn-primary">
             <i class="bi bi-plus-lg me-2"></i>上传新资源
           </router-link>
         </div>
@@ -31,7 +31,7 @@
         <i class="bi bi-file-earmark-plus display-1 text-muted"></i>
         <h3 class="mt-3">您还没有上传任何资源</h3>
         <p class="text-muted">分享您的资源，帮助更多人</p>
-        <router-link to="/resources/upload" class="btn btn-primary mt-3">
+        <router-link to="/resource-upload" class="btn btn-primary mt-3">
           上传第一个资源
         </router-link>
       </div>
@@ -88,11 +88,7 @@
                 <td>{{ formatDate(resource.createdAt) }}</td>
                 <td>
                   <div class="btn-group">
-                    <router-link 
-                      :to="`/resources/${resource._id}`" 
-                      class="btn btn-sm btn-outline-primary"
-                      title="查看"
-                    >
+                    <router-link :to="`/resource-market/${resource._id}`" class="btn btn-sm btn-outline-primary me-1" title="查看">
                       <i class="bi bi-eye"></i>
                     </router-link>
                     <router-link 
@@ -220,16 +216,20 @@ import { ref, computed, onMounted } from 'vue'
 import { useResourceStore } from '@/stores/resources'
 import { useAuthStore } from '@/stores/auth'
 import { Modal } from 'bootstrap'
+import { useRouter, useRoute } from 'vue-router'
 
 export default {
   name: 'UserResourcesView',
   setup() {
     const resourceStore = useResourceStore()
     const authStore = useAuthStore()
+    const router = useRouter()
+    const route = useRoute()
     const deleteModal = ref(null)
     const resourceToDelete = ref(null)
     const isDeleting = ref(false)
-    
+    let modalInstance = null
+
     // 格式化日期
     const formatDate = (dateString) => {
       if (!dateString) return '';
@@ -249,35 +249,50 @@ export default {
     
     // 分页处理
     const changePage = (page) => {
-      if (page < 1 || page > resourceStore.pagination.totalPages) return;
-      fetchUserResources(page);
+      if (page < 1 || page > resourceStore.pagination.totalPages || page === resourceStore.pagination.currentPage) {
+        return
+      }
+      // Update URL query parameter for better UX and state restoration
+      router.push({ query: { page } })
+      // Load resources for the new page
+      loadResources(page)
     }
     
     // 计算页码数组
     const pageNumbers = computed(() => {
-      const totalPages = resourceStore.pagination.totalPages;
-      const currentPage = resourceStore.pagination.currentPage;
-      
-      if (totalPages <= 5) {
-        return Array.from({ length: totalPages }, (_, i) => i + 1);
+      const total = resourceStore.pagination.totalPages;
+      const current = resourceStore.pagination.currentPage;
+      const delta = 2;
+      const range = [];
+      const rangeWithDots = [];
+      let l;
+
+      range.push(1);
+      for (let i = current - delta; i <= current + delta; i++) {
+        if (i > 1 && i < total) {
+          range.push(i);
+        }
       }
-      
-      if (currentPage <= 3) {
-        return [1, 2, 3, 4, 5];
-      }
-      
-      if (currentPage >= totalPages - 2) {
-        return [totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
-      }
-      
-      return [currentPage - 2, currentPage - 1, currentPage, currentPage + 1, currentPage + 2];
+      range.push(total);
+
+      range.forEach((i) => {
+        if (l) {
+          if (i - l === 2) {
+            rangeWithDots.push(l + 1);
+          } else if (i - l !== 1) {
+            rangeWithDots.push('...');
+          }
+        }
+        rangeWithDots.push(i);
+        l = i;
+      });
+
+      return rangeWithDots;
     });
     
     // 获取用户上传的资源
-    const fetchUserResources = async (page = 1) => {
-      if (authStore.user && authStore.user.id) {
-        await resourceStore.fetchResources(page, { user: authStore.user.id });
-      }
+    const loadResources = (page = 1) => {
+      resourceStore.fetchUserResources(page)
     }
     
     // 显示删除确认对话框
@@ -285,15 +300,8 @@ export default {
       resourceToDelete.value = resource;
       
       // 显示模态框
-      if (deleteModal.value) {
-        const modal = new Modal(deleteModal.value);
-        modal.show();
-      } else {
-        // 如果模态框还没准备好，等待DOM更新
-        setTimeout(() => {
-          const modal = new Modal(deleteModal.value);
-          modal.show();
-        }, 100);
+      if (modalInstance) {
+        modalInstance.show()
       }
     }
     
@@ -304,26 +312,35 @@ export default {
       isDeleting.value = true;
       
       try {
-        const result = await resourceStore.deleteResource(resourceToDelete.value._id);
-        
-        if (result) {
-          // 关闭模态框
-          const modal = Modal.getInstance(deleteModal.value);
-          modal.hide();
-          
-          // 刷新资源列表
-          fetchUserResources();
+        const success = await resourceStore.deleteResource(resourceToDelete.value._id)
+        if (success) {
+          // Optionally: reload current page or handle state update locally
+          loadResources(resourceStore.pagination.currentPage)
+          if (modalInstance) {
+            modalInstance.hide()
+          }
+           resourceToDelete.value = null // Reset
+          // TODO: Add success notification
+        } else {
+          // TODO: Add error notification
         }
       } catch (error) {
-        console.error('删除资源失败:', error);
+        console.error("Delete error:", error)
+        // TODO: Add error notification
       } finally {
-        isDeleting.value = false;
+        isDeleting.value = false
       }
     }
     
     // 初始加载
     onMounted(() => {
-      fetchUserResources();
+      // Initialize modal instance
+      if (deleteModal.value) {
+        modalInstance = new Modal(deleteModal.value)
+      }
+      // Fetch initial data based on current page from query or default to 1
+      const currentPage = parseInt(route.query.page, 10) || 1;
+      loadResources(currentPage)
     });
     
     return {

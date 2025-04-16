@@ -8,9 +8,10 @@ import 'bootstrap-icons/font/bootstrap-icons.css'
 import './assets/styles/main.css'
 
 // Import service configurations
-import './config/firebase' // Firebase will be initialized on import
+// import './config/firebase' // Firebase will be initialized on import - 注释掉此行
 import AV from './config/leancloud' // LeanCloud is already initialized
 import { initSentry } from './config/sentry' // Sentry will be initialized later
+import { useAuthStore } from '@/stores/auth' // <-- Import auth store
 
 console.log('开始应用初始化流程...')
 
@@ -29,7 +30,7 @@ window.addEventListener('error', (event) => {
 })
 
 // 异步初始化应用
-bootstrapApp().then(() => {
+bootstrapApp().then(async () => {
   console.log('初始化完成，创建Vue应用...')
   const app = createApp(App)
   
@@ -50,6 +51,18 @@ bootstrapApp().then(() => {
   
   // 使用插件
   app.use(pinia)
+  
+  // --- 调用 checkAuth --- 
+  const authStore = useAuthStore() // Get store instance
+  try {
+      console.log('调用 authStore.checkAuth...');
+      await authStore.checkAuth() // Wait for auth check to complete
+      console.log('authStore.checkAuth 完成.');
+  } catch (e) {
+      console.error('初始化认证检查失败:', e)
+  }
+  // --- 结束调用 checkAuth ---
+  
   app.use(router)
   
   // Initialize Sentry after router is attached

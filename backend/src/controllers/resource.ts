@@ -4,6 +4,7 @@ import Resource, { IResource } from '../models/Resource'; // 导入 Resource 模
 import Comment, { IComment } from '../models/Comment'; // 导入 Comment 模型
 import { FilterQuery, Types } from 'mongoose';
 import { AV } from '../libs/leancloud'; // 可能需要查询 LeanCloud 用户信息
+import { AuthRequest } from '../types/auth'; // 导入 AuthRequest 类型
 
 /**
  * 获取资源列表
@@ -92,55 +93,66 @@ export const getResources = asyncHandler(async (req: Request, res: Response) => 
  * @route POST /api/resources
  * @access Private (需要认证)
  */
-export const createResource = asyncHandler(async (req: Request, res: Response) => {
-  // 1. 检查用户是否已认证 (authenticate 中间件应该已处理，但再确认一次)
-  if (!req.user || !req.user.leancloud_uid) {
+export const createResource = asyncHandler(async (req: AuthRequest, res: Response) => {
+  // 1. 检查用户
+  if (!req.user || !req.user.userId) {
     return res.status(401).json({ success: false, message: '请先登录后再创建资源' });
   }
-  const uploaderId = req.user.leancloud_uid;
+  const uploaderId = req.user.userId; // 正确使用 JWT 结构
 
-  // 2. 从请求体获取数据
-  const { title, url, category, description, imageUrl, tags } = req.body;
+  // 2. 从请求体获取数据 (修正：接收 downloadLink, imageUrl, fileSize, fileType, 移除 url)
+  const { 
+    title, 
+    category, 
+    description, 
+    imageUrl,      // 封面图片 URL
+    downloadLink,  // 资源文件下载链接
+    tags,          // 标签数组 (前端已处理好)
+    fileSize,      // 文件大小 (来自前端)
+    fileType       // 文件类型 (来自前端)
+  } = req.body;
 
-  // 3. 输入验证
-  if (!title || !url || !category) {
-    return res.status(400).json({ success: false, message: '标题、URL 和分类是必填项' });
+  // 3. 输入验证 (修正：验证 downloadLink 和 imageUrl)
+  if (!title || !downloadLink || !category || !imageUrl) { 
+    // 将 imageUrl 也视为必填项，如果需要
+    return res.status(400).json({ 
+      success: false, 
+      message: '标题、下载链接、封面图片和分类是必填项' 
+    });
   }
 
-  // 可选：更详细的验证 (例如 URL 格式)
-  try {
-    new URL(url); // 尝试解析 URL，无效则抛出错误
-  } catch (error) {
-    return res.status(400).json({ success: false, message: '无效的 URL 格式' });
-  }
-
-  // 4. 准备要创建的资源对象
+  // 4. 准备要创建的资源对象 
   const resourceData: Partial<IResource> = {
-    title,
-    url,
+    title: title.trim(), 
     category,
     uploader: uploaderId,
-    description: description || '', // 提供默认值
-    imageUrl: imageUrl || '',
-    // 将逗号分隔或空格分隔的标签字符串转为数组 (如果提供了tags)
-    tags: typeof tags === 'string' ? tags.split(/[,\s]+/).map(tag => tag.trim()).filter(tag => tag) : [],
-    ratingSum: 0, // 初始评分总和为 0
+    description: description?.trim() || '', 
+    imageUrl: imageUrl, 
+    // 将 downloadLink 赋值给模型的 url 字段
+    url: downloadLink, 
+    tags: Array.isArray(tags) ? tags.filter(tag => typeof tag === 'string' && tag.trim()) : [], 
+    fileSize: fileSize || '', 
+    fileType: fileType || '', 
+    ratingSum: 0,
     ratingCount: 0
   };
 
   // 5. 创建并保存资源
   try {
     const newResource = await Resource.create(resourceData);
-    res.status(201).json({ success: true, data: newResource });
+    // 返回包含完整信息的成功响应
+    res.status(201).json({ success: true, data: newResource }); 
   } catch (error: any) {
     console.error('创建资源失败:', error);
-    // 处理唯一键冲突 (例如 URL 重复)
     if (error.code === 11000) {
-      return res.status(409).json({ success: false, message: '提交的 URL 已存在，请检查' });
+      // 检查哪个键冲突，更精确提示
+      const conflictingKey = Object.keys(error.keyValue)[0];
+      return res.status(409).json({ success: false, message: `提交的 ${conflictingKey} 已存在，请检查` });
     }
-    // 处理其他 Mongoose 验证错误
     if (error.name === 'ValidationError') {
-      return res.status(400).json({ success: false, message: '数据验证失败', errors: error.errors });
+      // 提取更具体的验证错误信息
+      const messages = Object.values(error.errors).map((el: any) => el.message);
+      return res.status(400).json({ success: false, message: `数据验证失败: ${messages.join(', ')}`, errors: error.errors });
     }
     res.status(500).json({ success: false, message: '创建资源时出错' });
   }
@@ -151,15 +163,21 @@ export const createResource = asyncHandler(async (req: Request, res: Response) =
  * @route POST /api/resources/:id/comments
  * @access Private (需要认证)
  */
-export const createComment = asyncHandler(async (req: Request, res: Response) => {
+export const createComment = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { id: resourceId } = req.params;
   const { content } = req.body;
+  
+  console.log('收到评论请求 - 参数:', {
+    resourceId,
+    requestBody: req.body,
+    user: req.user
+  });
 
-  // 1. 检查用户是否已认证 (暂时注释掉以方便测试)
-  // if (!req.user || !req.user.leancloud_uid) {
-  //   return res.status(401).json({ success: false, message: '请先登录后再发表评论' });
-  // }
-  const userId = req.user?.leancloud_uid || 'TEST_USER_ID'; // 提供一个测试用户 ID
+  // 1. 检查用户是否已认证 (authenticate 中间件已处理，但需要获取用户ID)
+  if (!req.user || !req.user.userId) {
+    return res.status(401).json({ success: false, message: '请先登录后再发表评论' });
+  }
+  const userId = req.user.userId; // 正确使用 JWT 结构中的 userId
 
   // 2. 输入验证
   if (!content || content.trim().length === 0) {
@@ -189,7 +207,7 @@ export const createComment = asyncHandler(async (req: Request, res: Response) =>
       const userQuery = new AV.Query('_User');
       const leancloudUser = await userQuery.get(userId);
       username = leancloudUser.get('username'); // 根据实际字段名调整
-      avatarUrl = leancloudUser.get('avatarUrl'); // 根据实际字段名调整
+      avatarUrl = leancloudUser.get('avatar')?.url(); // 根据实际字段名调整
     } catch (userError) {
       console.warn(`获取用户 ${userId} 的信息失败，评论将不包含用户名和头像:`, userError);
       // 获取失败不影响评论创建，username 和 avatarUrl 会是 undefined
@@ -204,7 +222,9 @@ export const createComment = asyncHandler(async (req: Request, res: Response) =>
       avatarUrl: avatarUrl, // 可能为 undefined
     };
 
+    console.log('准备创建评论:', commentData);
     const newComment = await Comment.create(commentData);
+    console.log('评论创建成功:', newComment);
 
     // 6. 返回成功响应
     res.status(201).json({ success: true, data: newComment });
@@ -293,15 +313,15 @@ export const getComments = asyncHandler(async (req: Request, res: Response) => {
  * @route POST /api/resources/:id/rate
  * @access Private (需要认证)
  */
-export const rateResource = asyncHandler(async (req: Request, res: Response) => {
+export const rateResource = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { id: resourceId } = req.params;
   const { rating } = req.body;
 
-  // 1. 检查用户是否已认证 (暂时注释掉以方便测试)
-  // if (!req.user || !req.user.leancloud_uid) {
-  //   return res.status(401).json({ success: false, message: '请先登录后再评分' });
-  // }
-  // const userId = req.user?.leancloud_uid; 
+  // 1. 检查用户是否已认证
+  if (!req.user || !req.user.userId) {
+    return res.status(401).json({ success: false, message: '请先登录后再评分' });
+  }
+  const userId = req.user.userId; // 正确使用 JWT 结构
 
   // 2. 验证资源 ID
   if (!Types.ObjectId.isValid(resourceId)) {
@@ -342,6 +362,149 @@ export const rateResource = asyncHandler(async (req: Request, res: Response) => 
   } catch (error: any) {
     console.error(`为资源 ${resourceId} 提交评分失败:`, error);
     res.status(500).json({ success: false, message: '提交评分时出错' });
+  }
+});
+
+/**
+ * 获取当前用户上传的资源列表
+ * @route GET /api/resources/user
+ * @access Private (需要认证)
+ */
+export const getUserResources = asyncHandler(async (req: AuthRequest, res: Response) => {
+  console.log(`[getUserResources] Entered. req.user:`, req.user); // Log req.user at the beginning
+  // 1. 检查用户是否已认证
+  if (!req.user || !req.user.userId) {
+    console.error('[getUserResources] Authentication check failed or userId missing in req.user');
+    return res.status(401).json({ success: false, message: '请先登录' });
+  }
+  const userId = req.user.userId; // 正确使用 JWT 结构
+
+  // 2. 解析分页参数
+  const { 
+    page = 1, 
+    limit = 10,
+    sortBy = 'createdAt', 
+    sortOrder = 'desc' 
+  } = req.query;
+
+  const pageNum = parseInt(page as string, 10) || 1;
+  const limitNum = Math.min(parseInt(limit as string, 10) || 10, 50); // 每页最多50条
+  const skip = (pageNum - 1) * limitNum;
+
+  // 3. 构建排序条件
+  const sort: { [key: string]: 1 | -1 } = {};
+  if (typeof sortBy === 'string') {
+    sort[sortBy] = sortOrder === 'asc' ? 1 : -1;
+  }
+
+  try {
+    // 4. 查询该用户上传的资源
+    const query = { uploader: userId };
+    
+    // 5. 并行执行查询总数和分页数据
+    const [totalResources, resources] = await Promise.all([
+      Resource.countDocuments(query),
+      Resource.find(query)
+        .sort(sort)
+        .skip(skip)
+        .limit(limitNum)
+    ]);
+
+    // 6. 计算分页信息
+    const totalPages = Math.ceil(totalResources / limitNum);
+
+    // 7. 返回响应
+    res.status(200).json({
+      success: true,
+      data: resources,
+      pagination: {
+        currentPage: pageNum,
+        pageSize: limitNum,
+        totalPages,
+        totalResources
+      }
+    });
+  } catch (error) {
+    console.error('获取用户资源列表失败:', error);
+    res.status(500).json({ success: false, message: '获取用户资源列表时出错' });
+  }
+});
+
+/**
+ * 删除指定 ID 的资源
+ * @route DELETE /api/resources/:id
+ * @access Private (需要认证，且需要是资源所有者)
+ */
+export const deleteResource = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { id: resourceId } = req.params;
+  
+  // 1. 验证用户是否登录 (虽然 authenticate 中间件已处理，但获取 uid 需要)
+  if (!req.user || !req.user.userId) {
+    // 这个情况理论上不应该发生，因为 authenticate 会先拦住
+    return res.status(401).json({ success: false, message: '需要认证' });
+  }
+  const userId = req.user.userId; // 正确使用 JWT 结构
+  
+  // 2. 验证资源 ID 是否有效
+  if (!Types.ObjectId.isValid(resourceId)) {
+    return res.status(400).json({ success: false, message: '无效的资源 ID' });
+  }
+
+  try {
+    // 3. 查找资源
+    const resource = await Resource.findById(resourceId);
+
+    // 4. 检查资源是否存在
+    if (!resource) {
+      return res.status(404).json({ success: false, message: '未找到要删除的资源' });
+    }
+
+    // 5. 权限检查：确保当前用户是资源的上传者
+    if (resource.uploader !== userId) {
+      return res.status(403).json({ success: false, message: '无权删除此资源' });
+    }
+
+    // 6. 执行删除操作
+    await Resource.findByIdAndDelete(resourceId);
+
+    // 7. 返回成功响应 (204 No Content 通常用于 DELETE 成功)
+    res.status(204).send();
+
+  } catch (error: any) {
+    console.error(`删除资源 ${resourceId} 失败:`, error);
+    res.status(500).json({ success: false, message: '删除资源时出错' });
+  }
+});
+
+/**
+ * 获取指定 ID 的资源详情
+ * @route GET /api/resources/:id
+ * @access Public
+ */
+export const getResourceById = asyncHandler(async (req: Request, res: Response) => {
+  const { id: resourceId } = req.params;
+
+  // 1. 验证资源 ID 是否有效
+  if (!Types.ObjectId.isValid(resourceId)) {
+    return res.status(400).json({ success: false, message: '无效的资源 ID' });
+  }
+
+  try {
+    // 2. 查找资源
+    // 可以考虑 populate 'uploader' 如果需要更详细的上传者信息
+    const resource = await Resource.findById(resourceId);
+
+    // 3. 检查资源是否存在
+    if (!resource) {
+      return res.status(404).json({ success: false, message: '未找到指定资源' });
+    }
+
+    // 4. 返回资源数据
+    res.status(200).json({ success: true, data: resource });
+
+  } catch (error: any) {
+    console.error(`获取资源 ${resourceId} 详情失败:`, error);
+    res.status(500).json({ success: false, message: '获取资源详情时出错' });
   }
 });
 

@@ -67,8 +67,10 @@ export class DingTalkBot {
         timeout: 5000 // 5秒超时
       });
 
-      // 检查响应
-      if (response.data.errcode === 0) {
+      // Check response from DingTalk API
+      // Use type assertion to access errcode on potentially unknown data type
+      if ((response.data as { errcode: number }).errcode === 0) {
+        console.log('钉钉报警发送成功:', title);
         return true;
       } else {
         console.error('钉钉消息发送失败:', response.data);

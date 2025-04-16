@@ -60,12 +60,9 @@
 </template>
 
 <script>
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import { auth } from '../config/firebase';
-import { signInWithEmailAndPassword } from '@firebase/auth';
 import { useAuthStore } from '../stores/auth';
-import axios from 'axios';
 
 export default {
   name: 'LoginView',
@@ -81,6 +78,11 @@ export default {
     const route = useRoute();
     const authStore = useAuthStore();
 
+    // 监听 authStore 中的错误变化，并更新本地 error ref
+    watch(() => authStore.error, (newError) => {
+      error.value = newError;
+    });
+
     const handleLogin = async () => {
       // 验证表单
       if (!loginForm.value.email || !loginForm.value.password) {
@@ -89,64 +91,25 @@ export default {
       }
       
       isLoading.value = true;
-      error.value = null;
       
-      try {
-        // 1. 使用Firebase进行身份验证
-        const userCredential = await signInWithEmailAndPassword(
-          auth, 
-          loginForm.value.email, 
-          loginForm.value.password
-        );
-        
-        console.log('Firebase登录成功:', userCredential.user.email);
-        
-        // 2. 获取Firebase ID令牌
-        const idToken = await userCredential.user.getIdToken();
-        
-        // 3. 发送ID令牌到后端以获取JWT
-        const response = await axios.post(
-          `${import.meta.env.VITE_API_BASE_URL}/auth/verify-token`, 
-          { idToken }
-        );
-        
-        // 4. 存储JWT并更新认证状态
-        if (response.data && response.data.token) {
-          // 使用Pinia存储认证信息
-          authStore.login({
-            token: response.data.token,
-            user: response.data.user
-          });
-          
-          // 如果勾选了"记住我"，保存7天，否则仅保存会话期
-          if (loginForm.value.remember) {
-            localStorage.setItem('auth_remember', 'true');
-          }
-          
-          // 重定向到首页或目标页面
-          const redirectPath = route.query.redirect || '/';
-          router.push(redirectPath);
-          
-          console.log('登录成功，已重定向到', redirectPath);
-        } else {
-          throw new Error('后端返回的数据格式不正确');
-        }
-      } catch (err) {
-        console.error('登录失败:', err);
-        
-        // 根据错误类型提供有用的错误消息
-        if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
-          error.value = '邮箱或密码错误';
-        } else if (err.code === 'auth/too-many-requests') {
-          error.value = '登录尝试次数过多，请稍后再试';
-        } else if (err.code === 'auth/network-request-failed') {
-          error.value = '网络连接失败，请检查您的网络';
-        } else {
-          error.value = '登录失败: ' + (err.message || '未知错误');
-        }
-      } finally {
-        isLoading.value = false;
+      // 直接调用 authStore 中的 login 方法
+      const success = await authStore.login(
+        loginForm.value.email, 
+        loginForm.value.password
+      );
+      
+      if (success) {
+        console.log('LeanCloud + JWT 登录成功!');
+        // 重定向逻辑保持不变，如果登录成功，authStore 会更新状态，导航守卫会处理
+        const redirectPath = route.query.redirect || '/';
+        router.push(redirectPath);
+        console.log('登录成功，已重定向到', redirectPath);
+      } else {
+        // 错误信息会通过 watch 自动更新到 error.value
+        console.error('登录失败:', authStore.error);
       }
+
+      isLoading.value = false; // 无论成功失败，结束 loading
     };
 
     return {

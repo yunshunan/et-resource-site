@@ -1,6 +1,7 @@
 // Resource Service
 // Provides methods for interacting with resource data
-import apiConnector from '../api/connector';
+import apiConnector from '../api/connector'; // <--- 保持导入 apiConnector
+import axios from './api'; // <--- 同时导入 axios 供 getResourceById 使用
 
 /**
  * Resource service for managing resource-related operations
@@ -12,6 +13,7 @@ class ResourceService {
    */
   async getCategories() {
     try {
+      // 保持使用 apiConnector
       return await apiConnector.request({
         resource: 'categories',
         action: 'list'
@@ -29,6 +31,7 @@ class ResourceService {
    */
   async getResources(params = {}) {
     try {
+      // 保持使用 apiConnector
       return await apiConnector.request({
         resource: 'resources',
         action: 'list',
@@ -49,14 +52,11 @@ class ResourceService {
     if (!category) {
       return this.getResources();
     }
-
     try {
       return await apiConnector.request({
         resource: 'resources',
         action: 'list',
-        params: {
-          category
-        }
+        params: { category }
       });
     } catch (error) {
       console.error(`Failed to fetch resources in category "${category}":`, error);
@@ -73,14 +73,11 @@ class ResourceService {
     if (!query || !query.trim()) {
       return this.getResources();
     }
-
     try {
       return await apiConnector.request({
         resource: 'resources',
         action: 'list',
-        params: {
-          search: query.trim()
-        }
+        params: { search: query.trim() }
       });
     } catch (error) {
       console.error(`Failed to search resources with query "${query}":`, error);
@@ -97,16 +94,32 @@ class ResourceService {
     if (!id) {
       throw new Error('Resource ID is required');
     }
-
     try {
-      return await apiConnector.request({
-        resource: 'resources',
-        action: 'get',
-        id
-      });
+      console.log(`[resourceService] Fetching resource with ID ${id}`);
+      // *** 修改这里：使用正确的 API 路径，添加 /api 前缀 ***
+      const responseData = await axios.get(`/api/resources/${id}`); 
+      console.log(`[resourceService] Response received for ID ${id}:`, responseData);
+      
+      // 检查后端返回的数据结构
+      if (responseData && responseData.success === true && responseData.data) {
+        return responseData.data; // 返回资源数据
+      } else if (responseData) {
+        // 这里处理成功响应但没有预期结构的情况 - 可能直接返回数据本身
+        console.log('[resourceService] Direct data response, returning responseData directly');
+        return responseData; 
+      } else if (responseData && responseData.success === false) {
+         throw new Error(responseData.message || `获取资源 ${id} 失败`);
+      } else {
+        // 如果响应结构不符合预期，也视为错误
+        console.warn('Unexpected response structure for getResourceById:', responseData);
+        // 可以返回 null 或抛出更具体的错误
+        // return null; 
+        throw new Error('获取资源时收到无效的响应格式');
+      }
     } catch (error) {
       console.error(`Failed to fetch resource with ID ${id}:`, error);
-      throw error;
+      // 重新抛出错误，让调用者处理
+      throw error; 
     }
   }
 
@@ -119,14 +132,11 @@ class ResourceService {
     if (!authorId) {
       throw new Error('Author ID is required');
     }
-
     try {
       return await apiConnector.request({
         resource: 'resources',
         action: 'list',
-        params: {
-          author: authorId
-        }
+        params: { author: authorId }
       });
     } catch (error) {
       console.error(`Failed to fetch resources by author ${authorId}:`, error);
@@ -143,14 +153,11 @@ class ResourceService {
     if (!tag) {
       throw new Error('Tag is required');
     }
-
     try {
       return await apiConnector.request({
         resource: 'resources',
         action: 'list',
-        params: {
-          tags: [tag]
-        }
+        params: { tags: [tag] }
       });
     } catch (error) {
       console.error(`Failed to fetch resources with tag ${tag}:`, error);
@@ -186,7 +193,6 @@ class ResourceService {
     if (!id) {
       throw new Error('Resource ID is required');
     }
-
     try {
       return await apiConnector.request({
         resource: 'resources',
@@ -209,7 +215,6 @@ class ResourceService {
     if (!id) {
       throw new Error('Resource ID is required');
     }
-
     try {
       return await apiConnector.request({
         resource: 'resources',
@@ -230,10 +235,7 @@ class ResourceService {
   async getPopularResources(limit = 5) {
     try {
       const resources = await this.getResources();
-      
-      // Sort by views in descending order
       const sortedResources = [...resources].sort((a, b) => b.views - a.views);
-      
       return sortedResources.slice(0, limit);
     } catch (error) {
       console.error('Failed to fetch popular resources:', error);
@@ -249,12 +251,9 @@ class ResourceService {
   async getRecentResources(limit = 5) {
     try {
       const resources = await this.getResources();
-      
-      // Sort by creation date in descending order
       const sortedResources = [...resources].sort((a, b) => 
         new Date(b.createdAt) - new Date(a.createdAt)
       );
-      
       return sortedResources.slice(0, limit);
     } catch (error) {
       console.error('Failed to fetch recent resources:', error);
@@ -270,12 +269,9 @@ class ResourceService {
   async getFreeResources(limit = 10) {
     try {
       const resources = await this.getResources();
-      
-      // Filter free resources and sort by rating
       const freeResources = resources
         .filter(resource => resource.price === 0)
         .sort((a, b) => b.rating - a.rating);
-      
       return freeResources.slice(0, limit);
     } catch (error) {
       console.error('Failed to fetch free resources:', error);

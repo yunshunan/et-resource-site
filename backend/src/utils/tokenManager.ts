@@ -27,14 +27,7 @@ export const invalidateUserTokens = async (userId: string): Promise<void> => {
     await tokenEntry.save(null, { useMasterKey: true });
     console.log(`Tokens invalidated for user ${userId} at ${new Date()}`);
 
-    // TODO: 清除客户端缓存（可选，需要云函数支持）
-    // try {
-    //   await AV.Cloud.run('clearUserCache', { userId });
-    //   console.log(`Cache cleared for user ${userId}`);
-    // } catch (cacheError) {
-    //   console.error(`Failed to clear cache for user ${userId}:`, cacheError);
-    //   // 非致命错误，继续执行
-    // }
+    // 云函数clearUserCache不存在，已移除相关代码
 
   } catch (error) {
     console.error(`Error invalidating tokens for user ${userId}:`, error);

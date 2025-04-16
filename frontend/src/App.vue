@@ -2,21 +2,25 @@
   <div id="app">
     <Navigation />
     <main class="page-container">
+      <!-- 恢复路由过渡效果 -->
       <router-view v-slot="{ Component }">
         <transition name="fade" mode="out-in">
           <component :is="Component" />
         </transition>
       </router-view>
+      <!-- 
+      <router-view /> 
+      -->
     </main>
     <FooterComponent />
   </div>
 </template>
 
 <script>
-import { defineComponent, onMounted } from 'vue'
+import { defineComponent, onMounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import Navigation from '@/components/layout/Navigation.vue'
 import FooterComponent from '@/components/common/FooterComponent.vue'
-import { getAuth, onAuthStateChanged } from '@firebase/auth'
 import { useAuthStore } from '@/stores/auth'
 
 export default defineComponent({
@@ -27,34 +31,48 @@ export default defineComponent({
   },
   setup() {
     const authStore = useAuthStore()
+    const router = useRouter()
+
+    // 清除所有可能存在的 Bootstrap modal 背景和相关元素
+    const cleanupModals = () => {
+      console.log('[App] 清理所有模态框和背景');
+      // 移除所有模态框背景
+      document.querySelectorAll('.modal-backdrop').forEach(el => {
+        el.remove();
+      });
+      
+      // 移除打开的模态框上的 classes 和内联样式
+      document.querySelectorAll('.modal.show').forEach(el => {
+        el.classList.remove('show');
+        el.style.display = 'none';
+        el.setAttribute('aria-hidden', 'true');
+      });
+      
+      // 移除 body 上可能添加的 modal 相关类
+      document.body.classList.remove('modal-open');
+      document.body.style.removeProperty('padding-right');
+      document.body.style.removeProperty('overflow');
+    };
+
+    // 监听路由变化，确保在路由变化时清理模态框
+    watch(() => router.currentRoute.value.fullPath, (newPath, oldPath) => {
+      if (newPath !== oldPath) {
+        console.log(`[App] 路由变化: ${oldPath} -> ${newPath}`);
+        // 添加延迟以确保在 Vue 组件销毁后清理模态框
+        setTimeout(() => {
+          cleanupModals();
+        }, 100);
+      }
+    });
 
     onMounted(() => {
-      // Initialize auth state from local storage
-      authStore.init()
-
-      // Set up Firebase auth state change listener
-      const auth = getAuth()
-      onAuthStateChanged(auth, async (user) => {
-        if (user) {
-          // User is signed in
-          try {
-            // Get Firebase ID token
-            const idToken = await user.getIdToken()
-            
-            // Verify token with backend to get JWT
-            await authStore.verifyFirebaseToken(idToken)
-          } catch (error) {
-            console.error('Failed to process authentication:', error)
-          }
-        } else {
-          // User is signed out
-          // Only clear auth if we were previously authenticated through Firebase
-          // This check prevents clearing token-based auth that might not use Firebase
-          if (authStore.user && authStore.user.firebase_uid) {
-            authStore.logout()
-          }
-        }
-      })
+      // Call checkAuth to verify JWT and fetch user on app load
+      // Remove authStore.init() unless it serves a specific purpose not covered by checkAuth
+      // console.log('App onMounted: Calling checkAuth...'); // Keep log if helpful
+      authStore.checkAuth(); 
+      
+      // 初始清理，以防有残留的 modal
+      cleanupModals();
     })
 
     return {

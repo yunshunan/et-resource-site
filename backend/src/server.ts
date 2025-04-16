@@ -2,43 +2,57 @@ import app from './app';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
-import { initLeanCloud } from './libs/leancloud'; // 导入初始化函数
+import { AV } from './libs/leancloud';
+// import firebase from './libs/firebase';
 
 // 加载环境变量
 dotenv.config();
 
-async function startServer() {
-  try {
-    // 显式初始化 LeanCloud
-    initLeanCloud(); 
+// 在非生产环境下，如果没有MongoDB URI，默认使用内存服务器
+const useMongoMemory = !process.env.MONGO_URI && process.env.NODE_ENV !== 'production';
 
-    let mongoUri = process.env.MONGO_URI;
-
-    // 在开发环境使用内存数据库
+const startServer = async () => {
+  // 捕获未处理的异常和拒绝
+  process.on('uncaughtException', (error) => {
+    console.error('未捕获的异常:', error);
+    // 在开发模式下立即崩溃，便于排查问题
     if (process.env.NODE_ENV === 'development') {
-      const mongod = await MongoMemoryServer.create();
-      mongoUri = mongod.getUri();
-      console.log('💾 使用MongoDB内存服务器进行开发');
-    }
-
-    if (!mongoUri) {
-      console.error('错误: MONGO_URI 环境变量未设置。');
       process.exit(1);
     }
+  });
 
-    // 连接 MongoDB 数据库
-    await mongoose.connect(mongoUri);
+  process.on('unhandledRejection', (reason) => {
+    console.error('未处理的Promise拒绝:', reason);
+  });
+
+  let uri = process.env.MONGO_URI;
+  let mongod: MongoMemoryServer | undefined;
+
+  try {
+    // 如果需要，启动MongoDB内存服务器
+    if (useMongoMemory) {
+      console.log('💾 使用MongoDB内存服务器进行开发');
+      mongod = await MongoMemoryServer.create();
+      uri = mongod.getUri();
+    }
+
+    // 连接到MongoDB
+    if (!uri) {
+      throw new Error('MongoDB URI未设置');
+    }
+
+    await mongoose.connect(uri);
     console.log('✅ MongoDB 连接成功');
 
     // 获取端口
-    const PORT = process.env.PORT || 3030;
+    const PORT = process.env.PORT || 3032;
 
     // 启动服务器
     app.listen(PORT, () => {
       console.log(`
       🚀 服务器已启动!
       🔊 监听端口: ${PORT}
-      🌐 环境: ${process.env.NODE_ENV || 'development'}
+      🌐 环境: ${process.env.NODE_ENV}
       📁 API路径: http://localhost:${PORT}/api
       💓 健康检查: http://localhost:${PORT}/api/health
       `);
@@ -49,15 +63,4 @@ async function startServer() {
   }
 }
 
-startServer();
-
-// 处理未捕获的异常
-process.on('uncaughtException', (error) => {
-  console.error('未捕获的异常:', error);
-  process.exit(1);
-});
-
-// 处理未处理的Promise拒绝
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('未处理的Promise拒绝:', reason);
-}); 
+startServer(); 
